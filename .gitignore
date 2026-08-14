@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+*.mp3
+*.wav
+*.egg-info/
