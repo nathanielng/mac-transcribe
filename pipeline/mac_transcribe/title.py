@@ -22,8 +22,8 @@ Transcript:
 """
 
 
-def generate_title_slug(transcript_md: str, model: str, region: str) -> str:
-    client = get_client(region)
+def generate_title_slug(transcript_md: str, model: str, region: str, profile: str = "default") -> str:
+    client = get_client(region, profile)
     try:
         response = client.messages.create(
             model=model,

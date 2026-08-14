@@ -9,8 +9,9 @@ DEFAULTS = {
     "recordings_dir": str(Path("~/Recordings/mac-transcribe").expanduser()),
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
     # Bedrock Global cross-region inference profile for Claude Sonnet 4.6.
-    "bedrock_model": "global.anthropic.claude-sonnet-4-6-v1:0",
+    "bedrock_model": "global.anthropic.claude-sonnet-4-6",
     "bedrock_region": "us-east-1",
+    "bedrock_profile": "default",
     "auto_rename_with_ai_title": True,
 }
 

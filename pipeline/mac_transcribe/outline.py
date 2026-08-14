@@ -51,8 +51,8 @@ class OutlineAuthError(Exception):
     """Raised when the Bedrock call fails due to missing/expired AWS credentials."""
 
 
-def generate_outline(transcript_md: str, title: str, model: str, region: str) -> str:
-    client = get_client(region)
+def generate_outline(transcript_md: str, title: str, model: str, region: str, profile: str = "default") -> str:
+    client = get_client(region, profile)
     try:
         response = client.messages.create(
             model=model,
@@ -72,11 +72,11 @@ def generate_outline(transcript_md: str, title: str, model: str, region: str) ->
     return response.content[0].text.strip()
 
 
-def run(session_dir: Path, title: str, model: str, region: str) -> Path:
+def run(session_dir: Path, title: str, model: str, region: str, profile: str = "default") -> Path:
     transcript_path = session_dir / "transcript.md"
     transcript_md = transcript_path.read_text()
 
-    outline_md = generate_outline(transcript_md, title, model, region)
+    outline_md = generate_outline(transcript_md, title, model, region, profile)
 
     out_path = session_dir / "outline.md"
     out_path.write_text(outline_md)

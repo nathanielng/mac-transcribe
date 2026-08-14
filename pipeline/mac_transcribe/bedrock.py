@@ -6,6 +6,8 @@ AWS credentials are already configured (profile, SSO, env vars) rather than
 requiring a separate ANTHROPIC_API_KEY.
 """
 
+import os
+
 import anthropic
 import botocore.exceptions
 
@@ -31,5 +33,12 @@ def is_auth_error(exc: Exception) -> bool:
     return False
 
 
-def get_client(region: str) -> anthropic.AnthropicBedrock:
-    return anthropic.AnthropicBedrock(aws_region=region)
+def get_client(region: str, profile: str | None = None) -> anthropic.AnthropicBedrock:
+    # AnthropicBedrock reads AWS_BEARER_TOKEN_BEDROCK from the environment by
+    # default (api_key = os.environ.get(...) happens unconditionally before any
+    # of our args are considered). If that var AND SigV4 credentials (profile,
+    # explicit keys) are both present, the SDK raises ValueError rather than
+    # picking one — it never silently prefers SigV4. Since we always want
+    # IAM/SigV4 auth here, clear the bearer token in this process first.
+    os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+    return anthropic.AnthropicBedrock(aws_region=region, aws_profile=profile or "default")
