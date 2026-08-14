@@ -9,8 +9,7 @@ import re
 import shutil
 from pathlib import Path
 
-import anthropic
-
+from .bedrock import get_client, is_auth_error
 from .outline import OutlineAuthError  # reuse the same auth-error type
 
 TITLE_PROMPT = """Read this transcript and produce a short filesystem-safe title for it: \
@@ -23,16 +22,18 @@ Transcript:
 """
 
 
-def generate_title_slug(transcript_md: str, model: str) -> str:
-    client = anthropic.Anthropic()
+def generate_title_slug(transcript_md: str, model: str, region: str) -> str:
+    client = get_client(region)
     try:
         response = client.messages.create(
             model=model,
             max_tokens=32,
             messages=[{"role": "user", "content": TITLE_PROMPT.format(transcript=transcript_md)}],
         )
-    except anthropic.AuthenticationError as e:
-        raise OutlineAuthError(str(e)) from e
+    except Exception as e:
+        if is_auth_error(e):
+            raise OutlineAuthError(str(e)) from e
+        raise
 
     raw = response.content[0].text.strip().lower()
     slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")

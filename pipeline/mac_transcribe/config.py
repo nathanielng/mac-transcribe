@@ -8,7 +8,9 @@ CONFIG_PATH = Path("~/.config/mac-transcribe/config.toml").expanduser()
 DEFAULTS = {
     "recordings_dir": str(Path("~/Recordings/mac-transcribe").expanduser()),
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
-    "anthropic_model": "claude-sonnet-5",
+    # Bedrock Global cross-region inference profile for Claude Sonnet 4.6.
+    "bedrock_model": "global.anthropic.claude-sonnet-4-6-v1:0",
+    "bedrock_region": "us-east-1",
     "auto_rename_with_ai_title": True,
 }
 

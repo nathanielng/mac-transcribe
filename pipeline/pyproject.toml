@@ -4,7 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "mlx-whisper>=0.4.0",
-    "anthropic>=0.40.0",
+    "anthropic[bedrock]>=0.40.0",
+    "boto3>=1.34.0",
 ]
 
 [project.optional-dependencies]

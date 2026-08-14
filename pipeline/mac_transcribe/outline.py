@@ -1,5 +1,6 @@
-"""Stage 3a: generate outline.md from transcript.md via the Anthropic API directly
-(no dependency on Claude Code being installed/running).
+"""Stage 3a: generate outline.md from transcript.md via Amazon Bedrock
+(Claude Sonnet 4.6, Global cross-region inference profile) — no dependency on
+Claude Code being installed/running.
 
 Format mirrors the ~/.claude/skills/outline skill's output, which
 mac_transcribe/html.py's merge logic expects: an overview, '## N. Title'
@@ -8,7 +9,7 @@ sections each with an <!-- anchor: "..." --> snippet, and a Key Takeaways table.
 
 from pathlib import Path
 
-import anthropic
+from .bedrock import get_client, is_auth_error
 
 OUTLINE_PROMPT = """You will be given a transcript of a recorded conversation or meeting. \
 Produce a structured outline of it in EXACTLY this markdown format (nothing before or after):
@@ -47,11 +48,11 @@ Transcript:
 
 
 class OutlineAuthError(Exception):
-    """Raised when the Anthropic API call fails due to missing/expired credentials."""
+    """Raised when the Bedrock call fails due to missing/expired AWS credentials."""
 
 
-def generate_outline(transcript_md: str, title: str, model: str) -> str:
-    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+def generate_outline(transcript_md: str, title: str, model: str, region: str) -> str:
+    client = get_client(region)
     try:
         response = client.messages.create(
             model=model,
@@ -63,17 +64,19 @@ def generate_outline(transcript_md: str, title: str, model: str) -> str:
                 }
             ],
         )
-    except anthropic.AuthenticationError as e:
-        raise OutlineAuthError(str(e)) from e
+    except Exception as e:
+        if is_auth_error(e):
+            raise OutlineAuthError(str(e)) from e
+        raise
 
     return response.content[0].text.strip()
 
 
-def run(session_dir: Path, title: str, model: str) -> Path:
+def run(session_dir: Path, title: str, model: str, region: str) -> Path:
     transcript_path = session_dir / "transcript.md"
     transcript_md = transcript_path.read_text()
 
-    outline_md = generate_outline(transcript_md, title, model)
+    outline_md = generate_outline(transcript_md, title, model, region)
 
     out_path = session_dir / "outline.md"
     out_path.write_text(outline_md)
