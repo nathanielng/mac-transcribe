@@ -14,8 +14,17 @@ enum MP3Encoder {
     static func encodeToMP3(wavURL: URL, mp3URL: URL) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: ffmpegPath())
-        process.arguments = ["-y", "-v", "error", "-i", wavURL.path, "-codec:a", "libmp3lame", mp3URL.path]
+        // -nostdin belt-and-suspenders on top of standardInput = nullDevice below:
+        // without both, ffmpeg calls tcsetattr() on whatever terminal it inherits
+        // to configure interactive keyboard controls. Launched from an app that
+        // itself inherited a controlling tty (e.g. started from a terminal), that
+        // tcsetattr call happens from a background process group and the kernel
+        // sends SIGTTOU, whose default action is to *stop* (not kill) the process
+        // — ffmpeg just hangs forever in T state, no error, nothing in the log.
+        process.arguments = ["-y", "-nostdin", "-v", "error", "-i", wavURL.path, "-codec:a", "libmp3lame", mp3URL.path]
 
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
         let stderr = Pipe()
         process.standardError = stderr
 

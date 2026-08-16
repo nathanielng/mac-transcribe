@@ -30,6 +30,12 @@ enum PipelineRunner {
         args += force.map { "--force-\($0)" }
         process.arguments = args
 
+        // Same defensive detach as MP3Encoder: never let a spawned subprocess
+        // inherit this app's controlling tty (see the SIGTTOU/ffmpeg hang this
+        // fixed there — python itself is less likely to touch termios, but
+        // there's no reason for any of our subprocesses to share a terminal).
+        process.standardInput = FileHandle.nullDevice
+
         do {
             try process.run()
         } catch {

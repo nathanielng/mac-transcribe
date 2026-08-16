@@ -58,8 +58,12 @@ final class RecordingController: ObservableObject {
     }
 
     func stop() {
-        guard isRecording, let dir = sessionDir else { return }
+        guard isRecording, let dir = sessionDir else {
+            NSLog("mac-transcribe: stop() called but isRecording=\(isRecording) sessionDir=\(String(describing: sessionDir))")
+            return
+        }
         isRecording = false
+        NSLog("mac-transcribe: stop() -> finalizing session at \(dir.path)")
 
         micRecorder.stop()
 
@@ -70,20 +74,29 @@ final class RecordingController: ObservableObject {
     }
 
     private func finalize(sessionDir dir: URL) async {
+        NSLog("mac-transcribe: finalize() started for \(dir.path)")
         for name in ["mic", "system"] {
             let wav = dir.appendingPathComponent("\(name).wav")
-            guard FileManager.default.fileExists(atPath: wav.path) else { continue }
+            guard FileManager.default.fileExists(atPath: wav.path) else {
+                NSLog("mac-transcribe: no \(name).wav present, skipping")
+                continue
+            }
             let mp3 = dir.appendingPathComponent("\(name).mp3")
+            NSLog("mac-transcribe: encoding \(name).wav -> \(name).mp3")
             do {
                 try MP3Encoder.encodeToMP3(wavURL: wav, mp3URL: mp3)
+                NSLog("mac-transcribe: encoded \(name).mp3 successfully")
             } catch {
+                NSLog("mac-transcribe: encoding \(name) FAILED: \(error)")
                 await MainActor.run { self.errorMessage = "Encoding \(name) failed: \(error.localizedDescription)" }
             }
         }
 
+        NSLog("mac-transcribe: launching pipeline for \(dir.path)")
         PipelineRunner.run(sessionDir: dir)
         sessionStore.refresh()
         sessionDir = nil
+        NSLog("mac-transcribe: finalize() complete")
     }
 
     private func makeSessionDir() -> URL {
