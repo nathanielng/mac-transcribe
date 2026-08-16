@@ -1,23 +1,20 @@
-"""Shared Bedrock client + auth-error classification for outline.py and title.py.
+"""Shared Bedrock client + auth-error classification for llm_backend.py.
 
-Uses the AnthropicBedrock client (Claude Sonnet 5 via the Global cross-region
-inference profile) instead of the direct Anthropic API, so this reuses whatever
-AWS credentials are already configured (profile, SSO, env vars) rather than
-requiring a separate ANTHROPIC_API_KEY.
+Uses boto3's bedrock-runtime Converse API rather than the `anthropic` SDK's
+AnthropicBedrock client, because AnthropicBedrock only speaks Claude's wire
+format — it silently fails against non-Anthropic models (confirmed with a
+real call: DeepSeek/Qwen return an unhandled 'NoneType is not subscriptable'
+error through that SDK). Converse is Bedrock's model-agnostic chat API and
+works identically across Claude, DeepSeek, and Qwen, which is what this app
+needs now that outline generation can target any of them.
 """
 
 import os
 
-import anthropic
+import boto3
 import botocore.exceptions
 
-# Credential/auth failures can surface either as botocore exceptions (raised
-# before any HTTP call, e.g. no credentials or expired SSO token) or as
-# anthropic SDK exceptions (raised from the HTTP response, e.g. AccessDenied
-# on the Bedrock API itself). Both mean "the user needs to re-authenticate".
 AUTH_ERROR_TYPES = (
-    anthropic.AuthenticationError,
-    anthropic.PermissionDeniedError,
     botocore.exceptions.NoCredentialsError,
     botocore.exceptions.UnauthorizedSSOTokenError,
     botocore.exceptions.TokenRetrievalError,
@@ -33,12 +30,22 @@ def is_auth_error(exc: Exception) -> bool:
     return False
 
 
-def get_client(region: str, profile: str | None = None) -> anthropic.AnthropicBedrock:
-    # AnthropicBedrock reads AWS_BEARER_TOKEN_BEDROCK from the environment by
-    # default (api_key = os.environ.get(...) happens unconditionally before any
-    # of our args are considered). If that var AND SigV4 credentials (profile,
-    # explicit keys) are both present, the SDK raises ValueError rather than
-    # picking one — it never silently prefers SigV4. Since we always want
-    # IAM/SigV4 auth here, clear the bearer token in this process first.
+def get_client(region: str, profile: str | None = None):
+    # Same issue as when this used AnthropicBedrock: boto3's bedrock-runtime
+    # client also resolves AWS_BEARER_TOKEN_BEDROCK if present, and it takes
+    # priority over SigV4 (confirmed with a real call) rather than falling
+    # back gracefully — surfaces as a confusing AccessDeniedException instead
+    # of using valid IAM credentials that are also configured. Since this app
+    # always intends IAM/SigV4, clear it before constructing the client.
     os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
-    return anthropic.AnthropicBedrock(aws_region=region, aws_profile=profile or "default")
+    session = boto3.Session(profile_name=profile or "default", region_name=region)
+    return session.client("bedrock-runtime")
+
+
+def converse(client, model: str, prompt: str, max_tokens: int) -> str:
+    response = client.converse(
+        modelId=model,
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": max_tokens},
+    )
+    return response["output"]["message"]["content"][0]["text"]

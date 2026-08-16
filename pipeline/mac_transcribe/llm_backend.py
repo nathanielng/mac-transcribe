@@ -14,7 +14,7 @@ entirely on-device, same as mlx-whisper's transcription.
 
 import threading
 
-from .bedrock import get_client, is_auth_error
+from .bedrock import converse, get_client, is_auth_error
 
 # process.py runs outline + title generation concurrently; without this,
 # choosing outline_backend = "mlx_lm" would load the (multi-GB) model twice
@@ -50,17 +50,11 @@ def generate_text(prompt: str, cfg: dict, max_tokens: int) -> str:
 def _generate_bedrock(prompt: str, model: str, region: str, profile: str, max_tokens: int) -> str:
     client = get_client(region, profile)
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        return converse(client, model, prompt, max_tokens).strip()
     except Exception as e:
         if is_auth_error(e):
             raise OutlineAuthError(str(e)) from e
         raise
-
-    return response.content[0].text.strip()
 
 
 def _generate_mlx_lm(prompt: str, model: str, max_tokens: int) -> str:
