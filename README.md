@@ -44,6 +44,9 @@ Claude Code/Kiro skills at runtime, etc).
 ### Pipeline (Python)
 
 ```bash
+source ~/.venv/bin/activate        # uv pip install below targets ~/.venv — without
+                                    # this, `python3` resolves elsewhere and pytest
+                                    # (or mac_transcribe itself) won't be found
 cd pipeline
 uv pip install -e ".[dev]"        # add ".[cjk]" too for Mandarin/Cantonese support
 python3 -m pytest                  # pure-logic tests, no AWS/audio needed
