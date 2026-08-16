@@ -88,6 +88,25 @@ mlx_outline_model = "mlx-community/Qwen3.5-4B-MLX-4bit"
 auto_rename_with_ai_title = true
 ```
 
+### Importing an existing audio or video file
+
+To run an already-recorded file (not captured by RecorderApp) through the
+same transcribe → outline → HTML pipeline:
+
+```bash
+cd pipeline
+python3 -m mac_transcribe.import_media /path/to/file.mp4 --title "Optional Title"
+```
+
+Works on audio (mp3, wav, m4a, aac, flac, ogg, aiff) and video (mp4, mov,
+m4v, mkv, avi, webm) — video files have their audio track extracted via
+ffmpeg (`-vn`, same as RecorderApp's own WAV→MP3 encoding step); the rest of
+the pipeline doesn't know or care whether the source was audio or video.
+Wraps the file into a normal session folder under `recordings_dir` (same
+layout a live recording produces, so it shows up in RecorderApp's recent
+list and supports the same regenerate-on-failure flow), then runs the full
+pipeline on it. `--title` is optional; defaults to the input filename.
+
 ### RecorderApp (Swift)
 
 ```bash
