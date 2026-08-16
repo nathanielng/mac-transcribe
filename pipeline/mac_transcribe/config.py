@@ -17,7 +17,7 @@ DEFAULTS = {
     # Bedrock Global cross-region inference profile for Claude Sonnet 5.
     # Open-weight alternatives also hosted on Bedrock: "deepseek.v3.2"
     # (Sonnet-tier reasoning/instruction-following) or
-    # "qwen.qwen3-235b-a22b-2507-v1:0" (cheaper/faster, Haiku-tier).
+    # "qwen.qwen3-vl-235b-a22b" (cheaper/faster, Haiku-tier).
     "bedrock_model": "global.anthropic.claude-sonnet-5",
     "bedrock_region": "us-east-1",
     "bedrock_profile": "default",

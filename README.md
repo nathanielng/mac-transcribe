@@ -13,7 +13,8 @@ Two components, coupled only through the filesystem:
   similar driver required), encodes to MP3, and spawns the pipeline below.
 - **`pipeline/`** — a Python CLI. Transcribes with MLX-Whisper (on-device,
   Apple Silicon GPU), generates an outline via Amazon Bedrock (Claude Sonnet
-  4.6), and merges both into a self-contained HTML page with a collapsible
+  5 by default) or fully locally via MLX, and merges both into a
+  self-contained HTML page with a collapsible
   outline sidebar.
 
 Every recording becomes one folder:
@@ -62,7 +63,7 @@ Outline generation (Stage 3) has two backends, selected by `outline_backend`:
   explicitly clears it and uses IAM/SigV4 instead — see
   `mac_transcribe/bedrock.py`. `bedrock_model` also accepts open-weight
   models hosted on Bedrock as Sonnet/Haiku-tier alternatives:
-  `deepseek.v3.2` or `qwen.qwen3-235b-a22b-2507-v1:0`.
+  `deepseek.v3.2` or `qwen.qwen3-vl-235b-a22b`.
 - **`mlx_lm`** — fully local, no AWS credentials or network needed. Install
   with `uv pip install -e ".[mlx_lm]"`. `mlx_outline_model` accepts any
   mlx-lm-compatible instruct model; default is

@@ -6,3 +6,4 @@ __pycache__/
 *.egg-info/
 .build/
 LEARNINGS.md
+pipeline/eval/results/

@@ -22,7 +22,7 @@ struct BedrockModelOption: Identifiable, Hashable {
     static let recommended: [BedrockModelOption] = [
         BedrockModelOption(id: "global.anthropic.claude-sonnet-5", label: "Claude Sonnet 5"),
         BedrockModelOption(id: "deepseek.v3.2", label: "DeepSeek V3.2 (open-weight, Sonnet-tier)"),
-        BedrockModelOption(id: "qwen.qwen3-235b-a22b-2507-v1:0", label: "Qwen3-235B-A22B (open-weight, Haiku-tier)"),
+        BedrockModelOption(id: "qwen.qwen3-vl-235b-a22b", label: "Qwen3-235B-A22B (open-weight, Haiku-tier)"),
     ]
 }
 
