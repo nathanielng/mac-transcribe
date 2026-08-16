@@ -11,6 +11,7 @@ struct MenuBarView: View {
             if let error = controller.errorMessage {
                 Text(error).font(.caption).foregroundColor(.red).lineLimit(3)
             }
+            folderRow
             Divider()
             Text("Recent Recordings").font(.headline)
             ScrollView {
@@ -48,7 +49,55 @@ struct MenuBarView: View {
                 Text("Detected: \(controller.detectedSource.rawValue)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                if controller.selectedSource == .mic || controller.selectedSource == .both {
+                    LevelMeter(level: controller.micLevel)
+                }
             }
+        }
+    }
+
+    private var folderRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "folder")
+                .foregroundColor(.secondary)
+            Text(controller.recordingsDir.path)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.head)
+            Spacer()
+            Button(action: { controller.openRecordingsFolder() }) {
+                Text("📂")
+            }
+            .buttonStyle(.plain)
+            .help("Open recordings folder")
+        }
+    }
+}
+
+/// Simple horizontal input-level bar so the user can confirm the mic is
+/// actually picking up sound before trusting a session to a full recording —
+/// far faster to eyeball than waiting for a transcript to find out.
+private struct LevelMeter: View {
+    let level: Float // 0...1
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "mic.fill")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.gray.opacity(0.25))
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(level > 0.85 ? Color.red : Color.green)
+                        .frame(width: geo.size.width * CGFloat(level))
+                        .animation(.linear(duration: 0.08), value: level)
+                }
+            }
+            .frame(height: 6)
         }
     }
 }

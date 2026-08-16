@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Combine
 
@@ -14,6 +15,10 @@ final class RecordingController: ObservableObject {
     @Published var selectedSource: RecordingSource = .mic
     @Published var detectedSource: DetectedSource = .none
     @Published var errorMessage: String?
+    /// 0...1 mic input RMS level, updated live while recording — lets the user
+    /// confirm the mic is actually picking up sound before trusting a session
+    /// to a full recording.
+    @Published var micLevel: Float = 0
 
     private let micRecorder = MicRecorder()
     private let systemRecorder = SystemAudioRecorder()
@@ -22,8 +27,16 @@ final class RecordingController: ObservableObject {
 
     let sessionStore: SessionStore
 
+    var recordingsDir: URL { AppConfig.load().recordingsDir }
+
     init(sessionStore: SessionStore) {
         self.sessionStore = sessionStore
+    }
+
+    func openRecordingsFolder() {
+        let dir = recordingsDir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
     }
 
     func start() {
@@ -39,6 +52,9 @@ final class RecordingController: ObservableObject {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
             if selectedSource == .mic || selectedSource == .both {
+                micRecorder.onLevel = { [weak self] level in
+                    Task { @MainActor in self?.micLevel = level }
+                }
                 try micRecorder.start(to: dir.appendingPathComponent("mic.wav"))
             }
             if selectedSource == .system || selectedSource == .both {
@@ -63,6 +79,7 @@ final class RecordingController: ObservableObject {
             return
         }
         isRecording = false
+        micLevel = 0
         NSLog("mac-transcribe: stop() -> finalizing session at \(dir.path)")
 
         micRecorder.stop()
