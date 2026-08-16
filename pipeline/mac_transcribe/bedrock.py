@@ -1,6 +1,6 @@
 """Shared Bedrock client + auth-error classification for outline.py and title.py.
 
-Uses the AnthropicBedrock client (Claude Sonnet 4.6 via the Global cross-region
+Uses the AnthropicBedrock client (Claude Sonnet 5 via the Global cross-region
 inference profile) instead of the direct Anthropic API, so this reuses whatever
 AWS credentials are already configured (profile, SSO, env vars) rather than
 requiring a separate ANTHROPIC_API_KEY.

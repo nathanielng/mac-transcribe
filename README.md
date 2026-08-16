@@ -52,11 +52,26 @@ uv pip install -e ".[dev]"        # add ".[cjk]" too for Mandarin/Cantonese supp
 python3 -m pytest                  # pure-logic tests, no AWS/audio needed
 ```
 
-Requires AWS credentials with Bedrock access (`aws sts get-caller-identity`
-should work) and access to the Claude Sonnet 4.6 Global cross-region
-inference profile (`global.anthropic.claude-sonnet-4-6`) in `us-east-1`. If
-`AWS_BEARER_TOKEN_BEDROCK` is set in your environment, `pipeline` explicitly
-clears it and uses IAM/SigV4 instead — see `mac_transcribe/bedrock.py`.
+Outline generation (Stage 3) has two backends, selected by `outline_backend`:
+
+- **`bedrock`** (default) — requires AWS credentials with Bedrock access
+  (`aws sts get-caller-identity` should work) and access to the Claude
+  Sonnet 5 Global cross-region inference profile
+  (`global.anthropic.claude-sonnet-5`) in `us-east-1`. If
+  `AWS_BEARER_TOKEN_BEDROCK` is set in your environment, `pipeline`
+  explicitly clears it and uses IAM/SigV4 instead — see
+  `mac_transcribe/bedrock.py`. `bedrock_model` also accepts open-weight
+  models hosted on Bedrock as Sonnet/Haiku-tier alternatives:
+  `deepseek.v3.2` or `qwen.qwen3-235b-a22b-2507-v1:0`.
+- **`mlx_lm`** — fully local, no AWS credentials or network needed. Install
+  with `uv pip install -e ".[mlx_lm]"`. `mlx_outline_model` accepts any
+  mlx-lm-compatible instruct model; default is
+  `mlx-community/Qwen3.5-4B-MLX-4bit` (fast, ~4GB), with
+  `mlx-community/Qwen3.5-9B-MLX-4bit` or `mlx-community/Qwen3.8-27B-4bit`
+  as higher-quality/higher-RAM options.
+
+Transcription (Stage 2) is local-only via `mlx-whisper`; `whisper_model`
+accepts any mlx-whisper-compatible model repo as a drop-in swap.
 
 Config lives at `~/.config/mac-transcribe/config.toml` (created with
 defaults on first run):
@@ -64,9 +79,11 @@ defaults on first run):
 ```toml
 recordings_dir = "~/Recordings/mac-transcribe"
 whisper_model = "mlx-community/whisper-large-v3-turbo"
-bedrock_model = "global.anthropic.claude-sonnet-4-6"
+outline_backend = "bedrock"                  # or "mlx_lm"
+bedrock_model = "global.anthropic.claude-sonnet-5"
 bedrock_region = "us-east-1"
 bedrock_profile = "default"
+mlx_outline_model = "mlx-community/Qwen3.5-4B-MLX-4bit"
 auto_rename_with_ai_title = true
 ```
 

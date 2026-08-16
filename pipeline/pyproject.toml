@@ -10,6 +10,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cjk = ["mlx-audio>=0.1.0"]
+mlx_lm = ["mlx-lm>=0.19.0"]
 dev = ["pytest>=8.0.0"]
 
 [tool.uv]

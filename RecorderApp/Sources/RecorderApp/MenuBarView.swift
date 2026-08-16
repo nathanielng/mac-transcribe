@@ -4,6 +4,7 @@ import AVKit
 struct MenuBarView: View {
     @ObservedObject var controller: RecordingController
     @ObservedObject var sessionStore: SessionStore
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -12,6 +13,7 @@ struct MenuBarView: View {
                 Text(error).font(.caption).foregroundColor(.red).lineLimit(3)
             }
             folderRow
+            modelSummaryRow
             Divider()
             Text("Recent Recordings").font(.headline)
             ScrollView {
@@ -23,10 +25,28 @@ struct MenuBarView: View {
             }
             .frame(maxHeight: 320)
             Divider()
-            Button("Quit") { NSApplication.shared.terminate(nil) }
+            HStack {
+                Button("Settings…") { openWindow(id: "settings") }
+                Spacer()
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+            }
         }
         .padding(12)
         .frame(width: 340)
+    }
+
+    /// Shows what's actually configured right now for transcription/outline
+    /// so the user doesn't have to open Settings just to check — especially
+    /// useful for confirming "yes, this is running fully local" or spotting
+    /// a stale/misconfigured model after editing config.toml by hand.
+    private var modelSummaryRow: some View {
+        let cfg = AppConfig.load()
+        return VStack(alignment: .leading, spacing: 2) {
+            Label(cfg.transcriptionModelSummary, systemImage: "waveform")
+            Label(cfg.outlineModelSummary, systemImage: "text.alignleft")
+        }
+        .font(.caption2)
+        .foregroundColor(.secondary)
     }
 
     private var recordSection: some View {

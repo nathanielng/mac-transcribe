@@ -9,8 +9,7 @@ import re
 import shutil
 from pathlib import Path
 
-from .bedrock import get_client, is_auth_error
-from .outline import OutlineAuthError  # reuse the same auth-error type
+from .llm_backend import generate_text
 
 TITLE_PROMPT = """Read this transcript and produce a short filesystem-safe title for it: \
 3-6 words, lowercase, hyphen-separated, no punctuation other than hyphens. \
@@ -22,20 +21,9 @@ Transcript:
 """
 
 
-def generate_title_slug(transcript_md: str, model: str, region: str, profile: str = "default") -> str:
-    client = get_client(region, profile)
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=32,
-            messages=[{"role": "user", "content": TITLE_PROMPT.format(transcript=transcript_md)}],
-        )
-    except Exception as e:
-        if is_auth_error(e):
-            raise OutlineAuthError(str(e)) from e
-        raise
-
-    raw = response.content[0].text.strip().lower()
+def generate_title_slug(transcript_md: str, cfg: dict) -> str:
+    prompt = TITLE_PROMPT.format(transcript=transcript_md)
+    raw = generate_text(prompt, cfg, max_tokens=32).strip().lower()
     slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
     return slug or "recording"
 

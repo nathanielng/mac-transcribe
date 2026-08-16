@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import status
 from .config import load_config
-from .outline import OutlineAuthError
+from .llm_backend import OutlineAuthError
 from .outline import run as run_outline
 from .title import generate_title_slug, rename_session
 from .transcribe import run as run_transcribe
@@ -52,7 +52,7 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
         if "outline" in force or not status.stage_ok(session_dir, "outline"):
             status.set_stage(session_dir, "outline", "running")
             try:
-                run_outline(session_dir, title, cfg["bedrock_model"], cfg["bedrock_region"], cfg["bedrock_profile"])
+                run_outline(session_dir, title, cfg)
                 status.set_stage(session_dir, "outline", "ok")
             except OutlineAuthError as e:
                 status.set_stage(session_dir, "outline", "failed", f"auth: {e}")
@@ -65,7 +65,7 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
         if "title" in force or not status.stage_ok(session_dir, "title_rename"):
             status.set_stage(session_dir, "title_rename", "running")
             try:
-                return generate_title_slug(transcript_md, cfg["bedrock_model"], cfg["bedrock_region"], cfg["bedrock_profile"])
+                return generate_title_slug(transcript_md, cfg)
             except OutlineAuthError as e:
                 status.set_stage(session_dir, "title_rename", "failed", f"auth: {e}")
             except Exception as e:

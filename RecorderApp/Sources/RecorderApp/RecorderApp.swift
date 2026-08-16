@@ -19,6 +19,11 @@ struct RecorderApp: App {
             Image(systemName: controller.isRecording ? "record.circle.fill" : "mic.circle")
         }
         .menuBarExtraStyle(.window)
+
+        Window("Settings", id: "settings") {
+            SettingsView()
+        }
+        .windowResizability(.contentSize)
     }
 }
 

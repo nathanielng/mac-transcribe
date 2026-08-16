@@ -1,6 +1,6 @@
-"""Stage 3a: generate outline.md from transcript.md via Amazon Bedrock
-(Claude Sonnet 4.6, Global cross-region inference profile) — no dependency on
-Claude Code being installed/running.
+"""Stage 3a: generate outline.md from transcript.md — backend selected by
+config's outline_backend (Bedrock or fully-local mlx_lm, see llm_backend.py).
+No dependency on Claude Code being installed/running either way.
 
 Format mirrors the ~/.claude/skills/outline skill's output, which
 mac_transcribe/html.py's merge logic expects: an overview, '## N. Title'
@@ -9,7 +9,7 @@ sections each with an <!-- anchor: "..." --> snippet, and a Key Takeaways table.
 
 from pathlib import Path
 
-from .bedrock import get_client, is_auth_error
+from .llm_backend import OutlineAuthError, generate_text
 
 OUTLINE_PROMPT = """You will be given a transcript of a recorded conversation or meeting. \
 Produce a structured outline of it in EXACTLY this markdown format (nothing before or after):
@@ -46,37 +46,21 @@ Transcript:
 {transcript}
 """
 
-
-class OutlineAuthError(Exception):
-    """Raised when the Bedrock call fails due to missing/expired AWS credentials."""
-
-
-def generate_outline(transcript_md: str, title: str, model: str, region: str, profile: str = "default") -> str:
-    client = get_client(region, profile)
-    try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": OUTLINE_PROMPT.format(title=title, transcript=transcript_md),
-                }
-            ],
-        )
-    except Exception as e:
-        if is_auth_error(e):
-            raise OutlineAuthError(str(e)) from e
-        raise
-
-    return response.content[0].text.strip()
+# Re-exported so existing `from .outline import OutlineAuthError` call sites
+# (process.py) keep working unchanged.
+__all__ = ["OutlineAuthError", "generate_outline", "run"]
 
 
-def run(session_dir: Path, title: str, model: str, region: str, profile: str = "default") -> Path:
+def generate_outline(transcript_md: str, title: str, cfg: dict) -> str:
+    prompt = OUTLINE_PROMPT.format(title=title, transcript=transcript_md)
+    return generate_text(prompt, cfg, max_tokens=4096)
+
+
+def run(session_dir: Path, title: str, cfg: dict) -> Path:
     transcript_path = session_dir / "transcript.md"
     transcript_md = transcript_path.read_text()
 
-    outline_md = generate_outline(transcript_md, title, model, region, profile)
+    outline_md = generate_outline(transcript_md, title, cfg)
 
     out_path = session_dir / "outline.md"
     out_path.write_text(outline_md)
