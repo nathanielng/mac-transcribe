@@ -33,7 +33,7 @@ struct MLXModelOption: Identifiable, Hashable {
     static let recommended: [MLXModelOption] = [
         MLXModelOption(id: "mlx-community/Qwen3.5-4B-MLX-4bit", label: "Qwen3.5 4B (fast, ~4GB)"),
         MLXModelOption(id: "mlx-community/Qwen3.5-9B-MLX-4bit", label: "Qwen3.5 9B (balanced, ~6GB)"),
-        MLXModelOption(id: "mlx-community/Qwen3.8-27B-4bit", label: "Qwen3.8 27B (highest quality, ~16GB+)"),
+        MLXModelOption(id: "mlx-community/Qwen3.5-27B-4bit", label: "Qwen3.5 27B (highest quality, ~16GB+)"),
     ]
 }
 

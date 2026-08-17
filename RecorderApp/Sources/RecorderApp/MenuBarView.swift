@@ -26,7 +26,15 @@ struct MenuBarView: View {
             .frame(maxHeight: 320)
             Divider()
             HStack {
-                Button("Settings…") { openWindow(id: "settings") }
+                Button("Settings…") {
+                    // Accessory apps (LSUIElement, our menu-bar-only policy)
+                    // don't get their windows brought to the front by
+                    // openWindow alone — the app itself has to be activated
+                    // first, or the Settings window opens behind whatever
+                    // else has focus (or appears not to open at all).
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "settings")
+                }
                 Spacer()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }

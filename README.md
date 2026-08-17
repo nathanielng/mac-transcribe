@@ -68,7 +68,7 @@ Outline generation (Stage 3) has two backends, selected by `outline_backend`:
   with `uv pip install -e ".[mlx_lm]"`. `mlx_outline_model` accepts any
   mlx-lm-compatible instruct model; default is
   `mlx-community/Qwen3.5-4B-MLX-4bit` (fast, ~4GB), with
-  `mlx-community/Qwen3.5-9B-MLX-4bit` or `mlx-community/Qwen3.8-27B-4bit`
+  `mlx-community/Qwen3.5-9B-MLX-4bit` or `mlx-community/Qwen3.5-27B-4bit`
   as higher-quality/higher-RAM options.
 
 Transcription (Stage 2) is local-only via `mlx-whisper`; `whisper_model`
