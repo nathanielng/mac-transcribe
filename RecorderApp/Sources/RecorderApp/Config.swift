@@ -67,6 +67,7 @@ struct AppConfig {
         "bedrock_profile": "default",
         "mlx_outline_model": "mlx-community/Qwen3.5-4B-MLX-4bit",
         "auto_rename_with_ai_title": "true",
+        "prevent_sleep_while_recording": "true",
     ]
 
     static func load() -> AppConfig {
@@ -97,7 +98,8 @@ struct AppConfig {
         var lines: [String] = []
         var written = Set<String>()
         for key in ["recordings_dir", "whisper_model", "outline_backend", "bedrock_model",
-                    "bedrock_region", "bedrock_profile", "mlx_outline_model", "auto_rename_with_ai_title"] {
+                    "bedrock_region", "bedrock_profile", "mlx_outline_model", "auto_rename_with_ai_title",
+                    "prevent_sleep_while_recording"] {
             lines.append(tomlLine(key: key, value: raw[key] ?? Self.defaults[key] ?? ""))
             written.insert(key)
         }
@@ -125,6 +127,15 @@ struct AppConfig {
     var autoRenameWithAITitle: Bool {
         get { raw["auto_rename_with_ai_title"] == "true" }
         set { raw["auto_rename_with_ai_title"] = newValue ? "true" : "false" }
+    }
+
+    /// When true (default), Start Recording holds an IOKit assertion that
+    /// prevents system sleep — including with the lid closed, no external
+    /// display needed — for as long as the recording runs, released
+    /// automatically on Stop Recording or app quit. See SleepAssertion.swift.
+    var preventSleepWhileRecording: Bool {
+        get { raw["prevent_sleep_while_recording"] != "false" }
+        set { raw["prevent_sleep_while_recording"] = newValue ? "true" : "false" }
     }
 
     var whisperModel: String {

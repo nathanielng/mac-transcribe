@@ -54,6 +54,13 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
 
+            Section {
+                Toggle("Prevent sleep while recording", isOn: $config.preventSleepWhileRecording)
+                Text("Keeps recording even with the lid closed and no external display, by holding a system sleep assertion for the duration of the recording (like caffeinate -s). Off means the Mac can sleep mid-recording, which pauses/ends it.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             HStack {
                 if saved {
                     Text("Saved").font(.caption).foregroundColor(.green)

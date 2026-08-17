@@ -81,6 +81,12 @@ struct MenuBarView: View {
                 if controller.selectedSource == .mic || controller.selectedSource == .both {
                     LevelMeter(level: controller.micLevel)
                 }
+
+                if controller.isSleepPrevented {
+                    Label("Sleep disabled — recording continues with lid closed", systemImage: "moon.zzz")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }

@@ -64,11 +64,19 @@ without this there's no sign of life from a terminal. Look for the mic icon
 - `SettingsView` — a separate window (recordings folder picker; transcription
   model field; outline backend segmented control with a curated model picker
   for each — Sonnet 5 / DeepSeek V3.2 / Qwen3-VL-235B for Bedrock, Qwen3.5
-  4B/9B/27B for local MLX — plus free-text "Custom…" for either). Opened via
-  the menu's Settings… button, which calls `NSApp.activate(ignoringOtherApps:
-  true)` before `openWindow` — accessory apps don't get their windows raised
-  by `openWindow` alone, a real bug found via manual testing (button visibly
+  4B/9B/27B for local MLX — plus free-text "Custom…" for either; a toggle for
+  auto title/rename; a toggle for sleep prevention). Opened via the menu's
+  Settings… button, which calls `NSApp.activate(ignoringOtherApps: true)`
+  before `openWindow` — accessory apps don't get their windows raised by
+  `openWindow` alone, a real bug found via manual testing (button visibly
   did nothing)
+- `SleepAssertion` — holds an IOKit `PreventSystemSleep` assertion (the same
+  mechanism `caffeinate -s` uses) for the duration of a recording, so it
+  continues with the lid closed and no external display — no manual
+  `caffeinate` command needed. Enabled on Start Recording, released on Stop
+  Recording or app quit; gated by the "Prevent sleep while recording"
+  Settings toggle (on by default). Verified with a real `pmset -g assertions`
+  check while held.
 - `MenuBarView` — record button + source picker, live mic level meter,
   recordings-folder row with a 📂 open button, a live "currently configured"
   transcription/outline summary line, recent-recordings list with play

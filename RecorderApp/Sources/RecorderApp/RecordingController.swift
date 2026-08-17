@@ -22,6 +22,7 @@ final class RecordingController: ObservableObject {
 
     private let micRecorder = MicRecorder()
     private let systemRecorder = SystemAudioRecorder()
+    private let sleepAssertion = SleepAssertion()
     private var sessionDir: URL?
     private var startedAt: Date?
 
@@ -67,11 +68,18 @@ final class RecordingController: ObservableObject {
                 }
             }
             isRecording = true
+            if AppConfig.load().preventSleepWhileRecording {
+                sleepAssertion.enable()
+            }
         } catch {
             errorMessage = "Failed to start recording: \(error.localizedDescription)"
             sessionDir = nil
         }
     }
+
+    /// Exposed so the UI can show whether sleep is currently being prevented —
+    /// tied entirely to recording state, not a separate toggle to remember.
+    var isSleepPrevented: Bool { sleepAssertion.isActive }
 
     func stop() {
         guard isRecording, let dir = sessionDir else {
@@ -80,6 +88,7 @@ final class RecordingController: ObservableObject {
         }
         isRecording = false
         micLevel = 0
+        sleepAssertion.disable()
         NSLog("mac-transcribe: stop() -> finalizing session at \(dir.path)")
 
         micRecorder.stop()
