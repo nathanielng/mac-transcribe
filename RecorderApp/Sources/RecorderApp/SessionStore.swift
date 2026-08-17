@@ -25,4 +25,12 @@ final class SessionStore: ObservableObject {
     func regenerate(_ session: Session, stage: String) {
         PipelineRunner.run(sessionDir: session.directory, force: [stage])
     }
+
+    /// For a session with audio on disk but no status.json yet — e.g. a
+    /// recording where the app quit or the handoff failed before
+    /// PipelineRunner.run() got called. No --force-* flags: this just runs
+    /// the normal skip-completed-stages pipeline from scratch.
+    func runPipeline(_ session: Session) {
+        PipelineRunner.run(sessionDir: session.directory)
+    }
 }

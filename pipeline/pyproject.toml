@@ -5,15 +5,28 @@ requires-python = ">=3.11"
 dependencies = [
     "mlx-whisper>=0.4.0",
     "boto3>=1.34.0",
+    # numba (a mlx-whisper transitive dep) needs numpy<=2.3; numpy 2.5
+    # breaks transcription with "Numba needs NumPy 2.3 or less".
+    "numpy<2.3",
 ]
 
 [project.optional-dependencies]
 cjk = ["mlx-audio>=0.1.0"]
-mlx_lm = ["mlx-lm>=0.19.0"]
+# 0.31.3+ required — 0.29.1 fails Qwen3.5 outline generation with
+# "ERROR:root:Model type qwen3_5 not supported".
+mlx_lm = ["mlx-lm>=0.31.3"]
 dev = ["pytest>=8.0.0"]
 
 [tool.uv]
 package = false
+
+[tool.setuptools]
+# Without this, setuptools' flat-layout auto-discovery sees both
+# mac_transcribe/ and eval/ (which has its own __init__.py) as top-level
+# packages and refuses to build ("Multiple top-level packages discovered").
+# eval/ is a standalone script + fixtures, not meant to be an installed
+# package — only mac_transcribe is.
+packages = ["mac_transcribe"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

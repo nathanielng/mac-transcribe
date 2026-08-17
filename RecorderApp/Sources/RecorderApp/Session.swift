@@ -63,6 +63,18 @@ struct Session: Identifiable {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    /// True if any audio (mp3 or a not-yet-encoded wav) exists in the
+    /// session folder — used to distinguish "pipeline never ran on this"
+    /// (show a Run button) from "not actually a usable session."
+    var hasAudio: Bool {
+        for name in ["mic.mp3", "system.mp3", "mic.wav", "system.wav"] {
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) {
+                return true
+            }
+        }
+        return false
+    }
+
     static func scan(recordingsDir: URL) -> [Session] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: recordingsDir, includingPropertiesForKeys: [.contentModificationDateKey]

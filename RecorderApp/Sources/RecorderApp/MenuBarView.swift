@@ -15,7 +15,15 @@ struct MenuBarView: View {
             folderRow
             modelSummaryRow
             Divider()
-            Text("Recent Recordings").font(.headline)
+            HStack {
+                Text("Recent Recordings").font(.headline)
+                Spacer()
+                Button(action: { sessionStore.refresh() }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Refresh")
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(sessionStore.sessions) { session in
@@ -23,7 +31,7 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(maxHeight: 320)
+            .frame(maxHeight: 480)
             Divider()
             HStack {
                 Button("Settings…") {
@@ -41,6 +49,15 @@ struct MenuBarView: View {
         }
         .padding(12)
         .frame(width: 340)
+        .onAppear {
+            // MenuBarExtra's content view is constructed lazily, so
+            // SessionStore.init()'s first refresh() can race the popover's
+            // first appearance (and lose) — this closes that gap by
+            // re-refreshing every time the popover actually opens, which is
+            // also just the right time to pick up anything that changed on
+            // disk since the last open.
+            sessionStore.refresh()
+        }
     }
 
     /// Shows what's actually configured right now for transcription/outline
@@ -79,7 +96,11 @@ struct MenuBarView: View {
                     .foregroundColor(.secondary)
 
                 if controller.selectedSource == .mic || controller.selectedSource == .both {
-                    LevelMeter(level: controller.micLevel)
+                    LevelMeter(level: controller.micLevel, icon: "mic.fill")
+                }
+
+                if controller.selectedSource == .system || controller.selectedSource == .both {
+                    LevelMeter(level: controller.systemLevel, icon: "speaker.wave.2.fill")
                 }
 
                 if controller.isSleepPrevented {
@@ -115,10 +136,11 @@ struct MenuBarView: View {
 /// far faster to eyeball than waiting for a transcript to find out.
 private struct LevelMeter: View {
     let level: Float // 0...1
+    var icon: String = "mic.fill"
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "mic.fill")
+            Image(systemName: icon)
                 .font(.caption2)
                 .foregroundColor(.secondary)
             GeometryReader { geo in
@@ -152,11 +174,24 @@ private struct SessionRow: View {
                 if let mic = session.micURL { PlayButton(url: mic, label: "Mic") }
                 if let sys = session.systemURL { PlayButton(url: sys, label: "System") }
                 Spacer()
-                StageChip(label: "Transcript", state: session.transcriptState) {
-                    sessionStore.regenerate(session, stage: "transcript")
-                }
-                StageChip(label: "Outline", state: session.outlineState) {
-                    sessionStore.regenerate(session, stage: "outline")
+                if session.status == nil && session.hasAudio {
+                    // No status.json yet — e.g. the app quit or the pipeline
+                    // handoff failed before it ever ran. Three static ⏳
+                    // chips with no action here would be misleading (looks
+                    // "in progress" when nothing is actually running), so
+                    // offer a way to kick it off instead.
+                    Button(action: { sessionStore.runPipeline(session) }) {
+                        Label("Run", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Run the pipeline on this session")
+                } else {
+                    StageChip(label: "Transcript", state: session.transcriptState) {
+                        sessionStore.regenerate(session, stage: "transcript")
+                    }
+                    StageChip(label: "Outline", state: session.outlineState) {
+                        sessionStore.regenerate(session, stage: "outline")
+                    }
                 }
                 if let html = session.htmlURL {
                     Button(action: { NSWorkspace.shared.open(html) }) {

@@ -1,4 +1,5 @@
 import AVFoundation
+import Foundation
 import ScreenCaptureKit
 
 /// Records system audio output (e.g. the other side of a Zoom/Teams call)
@@ -9,6 +10,11 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var file: AVAudioFile?
     private var wavURL: URL?
     private(set) var isRecording = false
+
+    /// Called on every sample buffer with a 0...1 RMS level, same purpose as
+    /// MicRecorder.onLevel — lets the UI confirm ScreenCaptureKit is
+    /// actually capturing audio, not just that startCapture() succeeded.
+    var onLevel: ((Float) -> Void)?
 
     func start(to url: URL) async throws {
         wavURL = url
@@ -51,6 +57,30 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             file = try? AVAudioFile(forWriting: url, settings: pcmBuffer.format.settings)
         }
         try? file?.write(from: pcmBuffer)
+
+        if let level = Self.rmsLevel(of: pcmBuffer) {
+            onLevel?(level)
+        }
+    }
+
+    private static func rmsLevel(of buffer: AVAudioPCMBuffer) -> Float? {
+        guard let channelData = buffer.floatChannelData else { return nil }
+        let frameLength = Int(buffer.frameLength)
+        guard frameLength > 0 else { return nil }
+
+        let channelCount = Int(buffer.format.channelCount)
+        var sumSquares: Float = 0
+        for channel in 0..<channelCount {
+            let samples = channelData[channel]
+            for i in 0..<frameLength {
+                sumSquares += samples[i] * samples[i]
+            }
+        }
+        let rms = sqrt(sumSquares / Float(frameLength * channelCount))
+        // System audio (the other side of a call, app playback, etc.) tends
+        // to run quieter than a close-talking mic, so scale up more
+        // aggressively than MicRecorder's 4x to keep the meter legible.
+        return min(1.0, rms * 4)
     }
 }
 

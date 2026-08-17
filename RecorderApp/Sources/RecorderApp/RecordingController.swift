@@ -19,6 +19,10 @@ final class RecordingController: ObservableObject {
     /// confirm the mic is actually picking up sound before trusting a session
     /// to a full recording.
     @Published var micLevel: Float = 0
+    /// Same as micLevel but for system audio — the main way to confirm
+    /// ScreenCaptureKit is actually capturing (vs. startCapture() having
+    /// succeeded but no audio actually flowing, e.g. a missing permission).
+    @Published var systemLevel: Float = 0
 
     private let micRecorder = MicRecorder()
     private let systemRecorder = SystemAudioRecorder()
@@ -59,6 +63,9 @@ final class RecordingController: ObservableObject {
                 try micRecorder.start(to: dir.appendingPathComponent("mic.wav"))
             }
             if selectedSource == .system || selectedSource == .both {
+                systemRecorder.onLevel = { [weak self] level in
+                    Task { @MainActor in self?.systemLevel = level }
+                }
                 Task {
                     do {
                         try await systemRecorder.start(to: dir.appendingPathComponent("system.wav"))
@@ -88,6 +95,7 @@ final class RecordingController: ObservableObject {
         }
         isRecording = false
         micLevel = 0
+        systemLevel = 0
         sleepAssertion.disable()
         NSLog("mac-transcribe: stop() -> finalizing session at \(dir.path)")
 

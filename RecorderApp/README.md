@@ -77,18 +77,27 @@ without this there's no sign of life from a terminal. Look for the mic icon
   Recording or app quit; gated by the "Prevent sleep while recording"
   Settings toggle (on by default). Verified with a real `pmset -g assertions`
   check while held.
-- `MenuBarView` — record button + source picker, live mic level meter,
-  recordings-folder row with a 📂 open button, a live "currently configured"
-  transcription/outline summary line, recent-recordings list with play
-  buttons (mic/system), per-stage status chips (✅/⏳/❌/🔑 for auth
-  failures) with a regenerate button on failed stages, click-through to the
-  outline HTML, and the Settings… button
+- `MenuBarView` — record button + source picker, live mic AND system-audio
+  level meters (`SystemAudioRecorder.onLevel`, scaled 4x since system audio
+  tends to run quieter than a close mic), recordings-folder row with a 📂
+  open button, a live "currently configured" transcription/outline summary
+  line, recent-recordings list with play buttons (mic/system), per-stage
+  status chips (✅/⏳/❌/🔑 for auth failures) with a regenerate button on
+  failed stages, a ▶ Run button instead of static chips for sessions that
+  have audio but no `status.json` yet (e.g. the app quit before the pipeline
+  handoff ran), a manual ↺ refresh button next to the "Recent Recordings"
+  heading, click-through to the outline HTML, and the Settings… button
+- `.onAppear { sessionStore.refresh() }` on the popover content — without
+  it, `SessionStore.init()`'s first refresh could race the popover's lazy
+  first construction and lose, showing a blank Recent Recordings list until
+  the next 3s poll tick. Now it also just re-syncs with disk every time you
+  open the menu, which is the more useful behavior anyway.
 
 ## Not yet implemented / known gaps
 
 - Not code-signed or notarized; not packaged as a distributable `.app`
 - `SystemAudioRecorder` is untested against a real Zoom/Teams call end-to-end
   (compiles and follows the documented ScreenCaptureKit audio-capture
-  pattern, but hasn't been run against a live meeting yet)
-- No waveform/level meter for system audio, only mic (system audio doesn't
-  go through a tap callback the same way, so it'd need separate wiring)
+  pattern; the level meter is the fastest way to confirm it's actually
+  capturing during a real call — if it stays at zero, check System Settings
+  → Privacy & Security → Screen & System Audio Recording)
