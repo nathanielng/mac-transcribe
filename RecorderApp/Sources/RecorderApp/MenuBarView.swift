@@ -213,11 +213,7 @@ private struct SessionRow: View {
                     // chips with no action here would be misleading (looks
                     // "in progress" when nothing is actually running), so
                     // offer a way to kick it off instead.
-                    Button(action: { sessionStore.runPipeline(session) }) {
-                        Label("Run", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.plain)
-                    .help("Run the pipeline on this session")
+                    RunButton { sessionStore.runPipeline(session) }
                 } else {
                     // The user may delete mic.mp3/system.mp3 and/or
                     // transcript.md after the fact and keep only the HTML —
@@ -245,15 +241,9 @@ private struct SessionRow: View {
                     // Settings and wanting this recording redone with it.
                     // Needs audio (it re-does the transcript stage too), so
                     // disabled when that's been deleted.
-                    Button(action: { sessionStore.reprocess(session) }) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                    ReprocessButton(enabled: session.hasAudio) {
+                        sessionStore.reprocess(session)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!session.hasAudio)
-                    .opacity(session.hasAudio ? 1 : 0.3)
-                    .help(session.hasAudio
-                        ? "Reprocess this session from scratch (transcript, outline, title)"
-                        : "mic.mp3/system.mp3 missing — can't reprocess without the original audio")
                 }
                 if let html = session.htmlURL {
                     Button(action: { NSWorkspace.shared.open(html) }) {
@@ -268,6 +258,63 @@ private struct SessionRow: View {
         .padding(6)
         .background(Color.gray.opacity(0.08))
         .cornerRadius(6)
+    }
+}
+
+/// Same instant-feedback need as ReprocessButton, for the same reason.
+private struct RunButton: View {
+    let action: () -> Void
+    @State private var justClicked = false
+
+    var body: some View {
+        Button(action: {
+            action()
+            justClicked = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justClicked = false }
+        }) {
+            Label(justClicked ? "Started…" : "Run", systemImage: justClicked ? "checkmark.circle" : "play.fill")
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(justClicked ? .accentColor : nil)
+        .animation(.easeInOut(duration: 0.3), value: justClicked)
+        .help("Run the pipeline on this session")
+    }
+}
+
+/// Spawning the reprocess subprocess is invisible until status.json's next
+/// poll tick (up to 3s later) shows "running" — without its own feedback,
+/// clicking this reads as "did that even do anything?" Gives an immediate
+/// spin + "Started…" flash on tap, independent of the actual pipeline state.
+private struct ReprocessButton: View {
+    let enabled: Bool
+    let action: () -> Void
+    @State private var justClicked = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Button(action: {
+                action()
+                justClicked = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justClicked = false }
+            }) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .rotationEffect(.degrees(justClicked ? 360 : 0))
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .opacity(enabled ? 1 : 0.3)
+            .animation(.easeInOut(duration: 0.6), value: justClicked)
+            .help(enabled
+                ? "Reprocess this session from scratch (transcript, outline, title)"
+                : "mic.mp3/system.mp3 missing — can't reprocess without the original audio")
+
+            if justClicked {
+                Text("Started…")
+                    .font(.caption2)
+                    .foregroundColor(.accentColor)
+                    .transition(.opacity)
+            }
+        }
     }
 }
 
@@ -293,17 +340,25 @@ private struct StageChip: View {
     var disabledReason: String = ""
     let onRegenerate: () -> Void
 
+    @State private var justClicked = false
+
     var body: some View {
         HStack(spacing: 3) {
             Text(label)
             Text(symbol).help(helpText)
             if case .failed = state {
-                Button(action: onRegenerate) {
+                Button(action: {
+                    onRegenerate()
+                    justClicked = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justClicked = false }
+                }) {
                     Image(systemName: "arrow.clockwise")
+                        .rotationEffect(.degrees(justClicked ? 360 : 0))
                 }
                 .buttonStyle(.plain)
                 .disabled(!canRegenerate)
                 .opacity(canRegenerate ? 1 : 0.3)
+                .animation(.easeInOut(duration: 0.6), value: justClicked)
                 .help(canRegenerate ? "Regenerate \(label.lowercased())" : disabledReason)
             }
         }
