@@ -5,6 +5,7 @@ struct RecorderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var sessionStore: SessionStore
     @StateObject private var controller: RecordingController
+    @StateObject private var audioPlayer = AudioPlayerController()
 
     init() {
         let store = SessionStore()
@@ -14,7 +15,7 @@ struct RecorderApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(controller: controller, sessionStore: sessionStore)
+            MenuBarView(controller: controller, sessionStore: sessionStore, audioPlayer: audioPlayer)
         } label: {
             Image(systemName: controller.isRecording ? "record.circle.fill" : "mic.circle")
         }

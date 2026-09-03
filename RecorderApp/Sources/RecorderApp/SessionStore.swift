@@ -48,4 +48,13 @@ final class SessionStore: ObservableObject {
     func runPipeline(_ session: Session) {
         PipelineRunner.run(sessionDir: session.directory)
     }
+
+    /// Forces every stage to re-run from scratch, even ones that already
+    /// succeeded — unlike regenerate(_:stage:), which only targets one
+    /// stage and is meant for retrying a *failure*. Useful after changing
+    /// the outline backend/model in Settings and wanting an already-
+    /// completed session redone with it, or just wanting a clean rebuild.
+    func reprocess(_ session: Session) {
+        PipelineRunner.run(sessionDir: session.directory, force: ["transcript", "outline", "title"])
+    }
 }

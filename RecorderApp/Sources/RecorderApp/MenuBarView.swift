@@ -4,6 +4,7 @@ import AVKit
 struct MenuBarView: View {
     @ObservedObject var controller: RecordingController
     @ObservedObject var sessionStore: SessionStore
+    @ObservedObject var audioPlayer: AudioPlayerController
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -33,7 +34,7 @@ struct MenuBarView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(sessionStore.sessions) { session in
-                            SessionRow(session: session, sessionStore: sessionStore)
+                            SessionRow(session: session, sessionStore: sessionStore, audioPlayer: audioPlayer)
                         }
                     }
                 }
@@ -46,7 +47,7 @@ struct MenuBarView: View {
                 // whole time, logged every 3s — this was a pure layout bug,
                 // not a data bug). maxHeight caps it so a long list doesn't
                 // take over the screen.
-                .frame(minHeight: 80, maxHeight: 560)
+                .frame(minHeight: 80, maxHeight: 720)
             }
             Divider()
             HStack {
@@ -192,6 +193,7 @@ private struct LevelMeter: View {
 private struct SessionRow: View {
     let session: Session
     @ObservedObject var sessionStore: SessionStore
+    @ObservedObject var audioPlayer: AudioPlayerController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -202,8 +204,8 @@ private struct SessionRow: View {
                 Text(session.date).font(.caption2).foregroundColor(.secondary)
             }
             HStack(spacing: 10) {
-                if let mic = session.micURL { PlayButton(url: mic, label: "Mic") }
-                if let sys = session.systemURL { PlayButton(url: sys, label: "System") }
+                if let mic = session.micURL { PlayButton(url: mic, label: "Mic", player: audioPlayer) }
+                if let sys = session.systemURL { PlayButton(url: sys, label: "System", player: audioPlayer) }
                 Spacer()
                 if session.status == nil && session.hasAudio {
                     // No status.json yet — e.g. the app quit or the pipeline
@@ -223,6 +225,16 @@ private struct SessionRow: View {
                     StageChip(label: "Outline", state: session.outlineState) {
                         sessionStore.regenerate(session, stage: "outline")
                     }
+                    // Distinct from the per-stage 🔄 regenerate buttons above,
+                    // which only appear on a *failed* stage — this forces every
+                    // stage to re-run from scratch even on a fully successful
+                    // session, e.g. after switching outline backend/model in
+                    // Settings and wanting this recording redone with it.
+                    Button(action: { sessionStore.reprocess(session) }) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reprocess this session from scratch (transcript, outline, title)")
                 }
                 if let html = session.htmlURL {
                     Button(action: { NSWorkspace.shared.open(html) }) {
@@ -243,12 +255,15 @@ private struct SessionRow: View {
 private struct PlayButton: View {
     let url: URL
     let label: String
+    @ObservedObject var player: AudioPlayerController
 
     var body: some View {
-        Button(action: { NSWorkspace.shared.open(url) }) {
-            Label(label, systemImage: "play.circle")
+        let playing = player.isPlaying(url)
+        Button(action: { player.toggle(url) }) {
+            Label(playing ? "Stop" : label, systemImage: playing ? "stop.circle.fill" : "play.circle")
         }
         .buttonStyle(.plain)
+        .foregroundColor(playing ? .red : nil)
     }
 }
 
