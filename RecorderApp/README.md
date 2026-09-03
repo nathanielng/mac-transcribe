@@ -126,6 +126,16 @@ without this there's no sign of life from a terminal. Look for the mic icon
   appear on a *failed* stage) — forces transcript+outline+title to re-run
   from scratch even on a fully successful session, e.g. after switching
   outline backend/model in Settings.
+- **Robust to deleted mp3s/transcript.md** — a normal cleanup workflow is
+  keeping only the final HTML and deleting the raw audio/transcript.
+  `Session.hasAudio`/`hasTranscript` gate the Transcript-regenerate,
+  Outline-regenerate, and Reprocess buttons (greyed out + a tooltip
+  explaining what's missing, rather than failing when clicked); the Play
+  buttons already only render when the corresponding mp3 file actually
+  exists. Verified by deleting a real session's `mic.mp3`/`transcript.md`
+  and screenshotting the real dropdown — the row still renders, with the
+  right controls visibly disabled compared side-by-side against an
+  untouched session's row.
 
 ## Not yet implemented / known gaps
 

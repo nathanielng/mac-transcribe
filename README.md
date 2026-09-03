@@ -14,8 +14,10 @@ Two components, coupled only through the filesystem:
 - **`pipeline/`** — a Python CLI. Transcribes with MLX-Whisper (on-device,
   Apple Silicon GPU), generates an outline via Amazon Bedrock (Claude Sonnet
   5 by default) or fully locally via MLX, and merges both into a
-  self-contained HTML page with a collapsible
-  outline sidebar.
+  self-contained HTML page with a collapsible outline sidebar. The original
+  transcript is embedded in the page itself (base64) behind a "Download
+  Transcript" button — the HTML survives if you later delete the mp3s and
+  `transcript.md`, since that's a normal cleanup workflow.
 
 Every recording becomes one folder:
 
