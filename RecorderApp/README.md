@@ -92,6 +92,24 @@ without this there's no sign of life from a terminal. Look for the mic icon
   first construction and lose, showing a blank Recent Recordings list until
   the next 3s poll tick. Now it also just re-syncs with disk every time you
   open the menu, which is the more useful behavior anyway.
+- Two more real bugs behind "Recent Recordings shows stale/blank data,"
+  found via manual testing (the underlying scan/parse logic itself checked
+  out fine standalone against real recording folders): `SessionStore`'s
+  refresh `Timer` was on the default run-loop mode, which doesn't fire while
+  a menu is being tracked (`NSMenu` tracking uses `.eventTracking`, not
+  `.default`) — added to `.common` mode instead. And `MenuBarExtra`'s
+  `.window` style has been observed to cache its content view rather than
+  reliably re-rendering on a plain `@Published` array mutation — added
+  `SessionStore.lastRefreshed` and keyed the list's `.id()` to it, forcing a
+  real rebuild every refresh.
+- **Pause/Resume** — `MicRecorder.pause()`/`resume()` via
+  `AVAudioEngine.pause()`/`start()` (same tap, same open file; verified with
+  a real engine test that frame count stays flat while paused and resumes
+  correctly). `SystemAudioRecorder.pause()`/`resume()` drop sample buffers
+  instead of writing them, since `SCStream` has no native pause and
+  stopping/restarting it risks a capture gap — the paused flag is behind an
+  `NSLock` since the delegate callback runs on a background queue, not the
+  main actor. Sleep prevention deliberately stays active while paused.
 
 ## Not yet implemented / known gaps
 
