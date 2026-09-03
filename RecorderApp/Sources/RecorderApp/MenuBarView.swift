@@ -31,7 +31,11 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(maxHeight: 480)
+            // Forces a real rebuild on every refresh — MenuBarExtra's
+            // .window style has been observed to cache its content and not
+            // reliably re-render on a plain @Published array mutation alone.
+            .id(sessionStore.lastRefreshed)
+            .frame(maxHeight: 560)
             Divider()
             HStack {
                 Button("Settings…") {
@@ -84,16 +88,31 @@ struct MenuBarView: View {
             .pickerStyle(.segmented)
             .disabled(controller.isRecording)
 
-            Button(controller.isRecording ? "Stop Recording" : "Start Recording") {
-                controller.isRecording ? controller.stop() : controller.start()
+            HStack {
+                Button(controller.isRecording ? "Stop Recording" : "Start Recording") {
+                    controller.isRecording ? controller.stop() : controller.start()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(controller.isRecording ? .red : .accentColor)
+
+                if controller.isRecording {
+                    Button(controller.isPaused ? "Resume" : "Pause") {
+                        controller.isPaused ? controller.resume() : controller.pause()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(controller.isRecording ? .red : .accentColor)
 
             if controller.isRecording {
                 Text("Detected: \(controller.detectedSource.rawValue)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                if controller.isPaused {
+                    Label("Paused — click Resume to continue", systemImage: "pause.circle")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
 
                 if controller.selectedSource == .mic || controller.selectedSource == .both {
                     LevelMeter(level: controller.micLevel, icon: "mic.fill")

@@ -12,6 +12,7 @@ enum RecordingSource: String, CaseIterable, Identifiable {
 @MainActor
 final class RecordingController: ObservableObject {
     @Published var isRecording = false
+    @Published var isPaused = false
     @Published var selectedSource: RecordingSource = .mic
     @Published var detectedSource: DetectedSource = .none
     @Published var errorMessage: String?
@@ -75,6 +76,7 @@ final class RecordingController: ObservableObject {
                 }
             }
             isRecording = true
+            isPaused = false
             if AppConfig.load().preventSleepWhileRecording {
                 sleepAssertion.enable()
             }
@@ -88,12 +90,35 @@ final class RecordingController: ObservableObject {
     /// tied entirely to recording state, not a separate toggle to remember.
     var isSleepPrevented: Bool { sleepAssertion.isActive }
 
+    /// Pauses capture without ending the session — mic via AVAudioEngine.pause()
+    /// (same tap, same open file, no gap to stitch), system audio by dropping
+    /// buffers in SystemAudioRecorder rather than stopping SCStream (heavier,
+    /// risks a capture gap). Sleep prevention deliberately stays active while
+    /// paused — pausing mid-recording usually means "stepping away briefly
+    /// with the lid maybe closing," not "done recording."
+    func pause() {
+        guard isRecording, !isPaused else { return }
+        micRecorder.pause()
+        systemRecorder.pause()
+        isPaused = true
+        micLevel = 0
+        systemLevel = 0
+    }
+
+    func resume() {
+        guard isRecording, isPaused else { return }
+        try? micRecorder.resume()
+        systemRecorder.resume()
+        isPaused = false
+    }
+
     func stop() {
         guard isRecording, let dir = sessionDir else {
             NSLog("mac-transcribe: stop() called but isRecording=\(isRecording) sessionDir=\(String(describing: sessionDir))")
             return
         }
         isRecording = false
+        isPaused = false
         micLevel = 0
         systemLevel = 0
         sleepAssertion.disable()

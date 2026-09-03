@@ -11,6 +11,16 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var wavURL: URL?
     private(set) var isRecording = false
 
+    // SCStream has no native pause; the delegate callback below also runs on
+    // a background queue (not the main actor RecordingController lives on),
+    // so this needs its own lock rather than a plain var.
+    private let stateLock = NSLock()
+    private var _isPaused = false
+    private var isPaused: Bool {
+        get { stateLock.withLock { _isPaused } }
+        set { stateLock.withLock { _isPaused = newValue } }
+    }
+
     /// Called on every sample buffer with a 0...1 RMS level, same purpose as
     /// MicRecorder.onLevel — lets the UI confirm ScreenCaptureKit is
     /// actually capturing audio, not just that startCapture() succeeded.
@@ -18,6 +28,7 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func start(to url: URL) async throws {
         wavURL = url
+        isPaused = false
 
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         guard let display = content.displays.first else {
@@ -48,8 +59,20 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         isRecording = false
     }
 
+    /// Pauses without stopping capture — the stream keeps running (stopping/
+    /// restarting SCStream is heavier and risks a capture gap), but sample
+    /// buffers are dropped instead of written while paused, and the level
+    /// meter stops updating along with it.
+    func pause() {
+        isPaused = true
+    }
+
+    func resume() {
+        isPaused = false
+    }
+
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .audio, sampleBuffer.isValid, let url = wavURL else { return }
+        guard type == .audio, sampleBuffer.isValid, let url = wavURL, !isPaused else { return }
 
         guard let pcmBuffer = sampleBuffer.asPCMBuffer else { return }
 

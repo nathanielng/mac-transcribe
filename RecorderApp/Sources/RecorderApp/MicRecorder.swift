@@ -58,4 +58,18 @@ final class MicRecorder {
         file = nil
         isRecording = false
     }
+
+    /// Pauses the engine without tearing down the tap or closing the file —
+    /// resume() just restarts the same engine and picks up where it left
+    /// off, appending to the same WAV rather than needing a second file to
+    /// stitch together later.
+    func pause() {
+        guard isRecording else { return }
+        engine.pause()
+    }
+
+    func resume() throws {
+        guard isRecording else { return }
+        try engine.start()
+    }
 }

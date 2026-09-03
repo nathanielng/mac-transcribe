@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var saved = false
     @State private var customBedrockModel = false
     @State private var customMLXModel = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Form {
@@ -67,7 +68,11 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
+                Button("Save & Close") {
+                    save()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding(16)
