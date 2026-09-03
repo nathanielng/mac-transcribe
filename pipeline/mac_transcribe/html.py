@@ -18,6 +18,7 @@ If outline.md is omitted, it's derived from the transcript filename using the
 `-claude-transcript.md` -> `-claude-outline.md` naming convention.
 """
 
+import base64
 import re
 import sys
 from pathlib import Path
@@ -337,6 +338,13 @@ PAGE_TEMPLATE = """<!doctype html>
     padding: 0.8rem 1.1rem; margin: 0.8rem 0 1rem; font-size: 0.9rem; color: var(--light); font-style: italic;
   }}
 
+  .badge-btn {{
+    all: unset; display: inline-flex; align-items: center; gap: 0.3rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 20px; padding: 0.2rem 0.7rem;
+    font-size: 0.78rem; color: var(--light); cursor: pointer; box-sizing: border-box;
+  }}
+  .badge-btn:hover {{ background: #2e2e4a; color: var(--accent2); }}
+
   .block-header {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }}
   .block-header h2 {{ margin: 0; border-bottom: none; padding-bottom: 0; flex: 1; }}
   .toggle {{ display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }}
@@ -376,6 +384,7 @@ PAGE_TEMPLATE = """<!doctype html>
     <div class="meta">
       <span class="badge">📅 {date}</span>
       <span class="badge">🎙️ {sources}</span>
+      <button class="badge-btn" id="downloadTranscriptBtn">⬇️ Download Transcript</button>
     </div>
   </div>
 
@@ -393,6 +402,30 @@ PAGE_TEMPLATE = """<!doctype html>
 </main>
 
 <script>
+  // The original transcript.md, base64-encoded, embedded so the "Download
+  // Transcript" button works even if transcript.md itself has since been
+  // deleted from disk — this HTML page is meant to be the thing that
+  // survives after mp3/transcript cleanup. Base64 (rather than a plain JS
+  // string literal) sidesteps needing to escape quotes/backslashes/
+  // "</script>" sequences that might appear in real transcript text.
+  const TRANSCRIPT_B64 = "{transcript_b64}";
+  const TRANSCRIPT_FILENAME = "{transcript_filename}";
+  document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {{
+    const binary = atob(TRANSCRIPT_B64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const text = new TextDecoder('utf-8').decode(bytes);
+    const blob = new Blob([text], {{ type: 'text/markdown' }});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = TRANSCRIPT_FILENAME;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }});
+
   const sidebar = document.getElementById('sidebar');
   document.getElementById('navCollapse').addEventListener('click', () => sidebar.classList.add('collapsed'));
   document.getElementById('navExpand').addEventListener('click', () => sidebar.classList.remove('collapsed'));
@@ -441,7 +474,8 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
     """Builds the merged HTML page. Returns a list of warning strings (non-fatal)."""
     warnings = []
 
-    title, date, sources, normalized_transcript = parse_transcript(transcript_path.read_text())
+    raw_transcript_text = transcript_path.read_text()
+    title, date, sources, normalized_transcript = parse_transcript(raw_transcript_text)
     overview_html, sections, footer_html = parse_outline(outline_path.read_text())
 
     if not sections:
@@ -455,6 +489,9 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
     blocks_html = build_blocks(sections, transcript_slices)
     nav_html = build_nav(sections)
 
+    transcript_b64 = base64.b64encode(raw_transcript_text.encode("utf-8")).decode("ascii")
+    title_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "transcript"
+
     page = PAGE_TEMPLATE.format(
         title=escape(title),
         date=escape(date),
@@ -463,6 +500,8 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
         nav_html=nav_html,
         footer_html=footer_html,
         blocks_html=blocks_html,
+        transcript_b64=transcript_b64,
+        transcript_filename=f"{title_slug}-transcript.md",
     )
 
     output_path.write_text(page)

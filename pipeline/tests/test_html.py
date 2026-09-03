@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -104,3 +105,31 @@ def test_build_html_raises_on_outline_with_no_sections(tmp_path: Path):
 
     with pytest.raises(ValueError):
         build_html(transcript_path, outline_path, output_path)
+
+
+def test_build_html_embeds_downloadable_transcript(tmp_path: Path):
+    """The HTML must let you regenerate transcript.md even after it's been
+    deleted from disk (a real user workflow: keep the HTML, delete mp3s and
+    transcript.md) - so the ORIGINAL transcript.md bytes must round-trip
+    exactly out of the embedded base64, not just some derived text."""
+    import base64
+
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(TRANSCRIPT_MD)
+    outline_path.write_text(OUTLINE_MD)
+
+    build_html(transcript_path, outline_path, output_path)
+    html = output_path.read_text()
+
+    assert 'id="downloadTranscriptBtn"' in html
+
+    b64_match = re.search(r'TRANSCRIPT_B64 = "([^"]*)"', html)
+    assert b64_match is not None
+    decoded = base64.b64decode(b64_match.group(1)).decode("utf-8")
+    assert decoded == TRANSCRIPT_MD
+
+    filename_match = re.search(r'TRANSCRIPT_FILENAME = "([^"]*)"', html)
+    assert filename_match is not None
+    assert filename_match.group(1) == "test-session-transcript.md"

@@ -65,7 +65,10 @@ struct Session: Identifiable {
 
     /// True if any audio (mp3 or a not-yet-encoded wav) exists in the
     /// session folder — used to distinguish "pipeline never ran on this"
-    /// (show a Run button) from "not actually a usable session."
+    /// (show a Run button) from "not actually a usable session," and to
+    /// gate actions (Reprocess, regenerating the transcript stage) that
+    /// need raw audio to do anything — the user may delete mp3s/transcripts
+    /// after the fact and keep only the HTML, so these can't be assumed.
     var hasAudio: Bool {
         for name in ["mic.mp3", "system.mp3", "mic.wav", "system.wav"] {
             if FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) {
@@ -73,6 +76,12 @@ struct Session: Identifiable {
             }
         }
         return false
+    }
+
+    /// Gates regenerating the outline stage — it reads transcript.md, so
+    /// there's nothing to regenerate from if that's been deleted too.
+    var hasTranscript: Bool {
+        FileManager.default.fileExists(atPath: directory.appendingPathComponent("transcript.md").path)
     }
 
     static func scan(recordingsDir: URL) -> [Session] {

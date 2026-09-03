@@ -219,10 +219,23 @@ private struct SessionRow: View {
                     .buttonStyle(.plain)
                     .help("Run the pipeline on this session")
                 } else {
-                    StageChip(label: "Transcript", state: session.transcriptState) {
+                    // The user may delete mic.mp3/system.mp3 and/or
+                    // transcript.md after the fact and keep only the HTML —
+                    // regenerating a stage needs that stage's actual input
+                    // still on disk, so these are disabled (not just left to
+                    // fail) when it isn't.
+                    StageChip(
+                        label: "Transcript", state: session.transcriptState,
+                        canRegenerate: session.hasAudio,
+                        disabledReason: "mic.mp3/system.mp3 missing — nothing to transcribe"
+                    ) {
                         sessionStore.regenerate(session, stage: "transcript")
                     }
-                    StageChip(label: "Outline", state: session.outlineState) {
+                    StageChip(
+                        label: "Outline", state: session.outlineState,
+                        canRegenerate: session.hasTranscript,
+                        disabledReason: "transcript.md missing — nothing to outline"
+                    ) {
                         sessionStore.regenerate(session, stage: "outline")
                     }
                     // Distinct from the per-stage 🔄 regenerate buttons above,
@@ -230,11 +243,17 @@ private struct SessionRow: View {
                     // stage to re-run from scratch even on a fully successful
                     // session, e.g. after switching outline backend/model in
                     // Settings and wanting this recording redone with it.
+                    // Needs audio (it re-does the transcript stage too), so
+                    // disabled when that's been deleted.
                     Button(action: { sessionStore.reprocess(session) }) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
                     .buttonStyle(.plain)
-                    .help("Reprocess this session from scratch (transcript, outline, title)")
+                    .disabled(!session.hasAudio)
+                    .opacity(session.hasAudio ? 1 : 0.3)
+                    .help(session.hasAudio
+                        ? "Reprocess this session from scratch (transcript, outline, title)"
+                        : "mic.mp3/system.mp3 missing — can't reprocess without the original audio")
                 }
                 if let html = session.htmlURL {
                     Button(action: { NSWorkspace.shared.open(html) }) {
@@ -270,6 +289,8 @@ private struct PlayButton: View {
 private struct StageChip: View {
     let label: String
     let state: StageState
+    var canRegenerate: Bool = true
+    var disabledReason: String = ""
     let onRegenerate: () -> Void
 
     var body: some View {
@@ -281,7 +302,9 @@ private struct StageChip: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.plain)
-                .help("Regenerate \(label.lowercased())")
+                .disabled(!canRegenerate)
+                .opacity(canRegenerate ? 1 : 0.3)
+                .help(canRegenerate ? "Regenerate \(label.lowercased())" : disabledReason)
             }
         }
     }
