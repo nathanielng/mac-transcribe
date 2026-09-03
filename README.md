@@ -34,7 +34,9 @@ and merged into one transcript ordered by timestamp, labeled `[You]` /
 `[Call]`. An optional stage generates a short AI title from the transcript
 and renames the whole session (mp3s, transcript, outline, html, folder) to
 use it — runs concurrently with outline generation, gated by
-`auto_rename_with_ai_title` in the config.
+`auto_rename_with_ai_title` in the config. The rename also updates the
+title *inside* `transcript.md` (not just the filenames), so the generated
+HTML page's `<title>`/`<h1>` reflect the new name too.
 
 See [`plan.md`](plan.md) for the full design writeup and the reasoning behind
 these choices (why two languages, why per-session folders, why not depend on

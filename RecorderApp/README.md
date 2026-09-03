@@ -117,6 +117,15 @@ without this there's no sign of life from a terminal. Look for the mic icon
   stopping/restarting it risks a capture gap — the paused flag is behind an
   `NSLock` since the delegate callback runs on a background queue, not the
   main actor. Sleep prevention deliberately stays active while paused.
+- `AudioPlayerController` — in-app Play/Stop for mic/system playback via
+  `AVAudioPlayer`, replacing `NSWorkspace.shared.open()`, which handed the
+  file off to an external player with no way to stop it from RecorderApp
+  itself. One shared player: starting a second clip stops the first.
+- A 🔄 **Reprocess** button per completed session (`SessionStore.reprocess`),
+  distinct from the per-stage regenerate buttons on `StageChip` (which only
+  appear on a *failed* stage) — forces transcript+outline+title to re-run
+  from scratch even on a fully successful session, e.g. after switching
+  outline backend/model in Settings.
 
 ## Not yet implemented / known gaps
 
