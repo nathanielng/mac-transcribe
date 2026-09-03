@@ -92,16 +92,23 @@ without this there's no sign of life from a terminal. Look for the mic icon
   first construction and lose, showing a blank Recent Recordings list until
   the next 3s poll tick. Now it also just re-syncs with disk every time you
   open the menu, which is the more useful behavior anyway.
-- Two more real bugs behind "Recent Recordings shows stale/blank data,"
-  found via manual testing (the underlying scan/parse logic itself checked
-  out fine standalone against real recording folders): `SessionStore`'s
+- Fixed the actual "Recent Recordings is empty" bug: `SessionStore`'s
   refresh `Timer` was on the default run-loop mode, which doesn't fire while
   a menu is being tracked (`NSMenu` tracking uses `.eventTracking`, not
-  `.default`) — added to `.common` mode instead. And `MenuBarExtra`'s
-  `.window` style has been observed to cache its content view rather than
-  reliably re-rendering on a plain `@Published` array mutation — added
-  `SessionStore.lastRefreshed` and keyed the list's `.id()` to it, forcing a
-  real rebuild every refresh.
+  `.default`) — added to `.common` mode instead. Separately, and this was
+  the actual cause of the reported empty list: the recordings `ScrollView`
+  had no `minHeight`, so it collapsed to zero height inside `MenuBarExtra`'s
+  auto-sizing content window even when `sessionStore.sessions` genuinely had
+  entries — added `.frame(minHeight: 80, maxHeight: 560)` and a proper empty
+  state. (An earlier attempted fix here — forcing the list's `.id()` to
+  change on every refresh, guessing at a `MenuBarExtra` content-caching
+  issue — was not actually verified against the real UI and likely made the
+  zero-height collapse worse; removed. Diagnosed properly this time by
+  driving the live app with `osascript`/System Events and screenshotting the
+  real dropdown rather than reasoning about SwiftUI internals in the
+  abstract — see `LEARNINGS.md` for the full writeup and the corrected
+  lesson about verifying GUI fixes against the actual screen, not just a
+  successful build.)
 - **Pause/Resume** — `MicRecorder.pause()`/`resume()` via
   `AVAudioEngine.pause()`/`start()` (same tap, same open file; verified with
   a real engine test that frame count stays flat while paused and resumes
