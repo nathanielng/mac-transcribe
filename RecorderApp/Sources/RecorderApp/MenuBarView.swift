@@ -24,18 +24,30 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .help("Refresh")
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(sessionStore.sessions) { session in
-                        SessionRow(session: session, sessionStore: sessionStore)
+            if sessionStore.sessions.isEmpty {
+                Text("No recordings yet")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(minHeight: 40)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(sessionStore.sessions) { session in
+                            SessionRow(session: session, sessionStore: sessionStore)
+                        }
                     }
                 }
+                // ScrollView has no intrinsic content size of its own, so
+                // without an explicit minHeight it can collapse to zero
+                // height inside MenuBarExtra's auto-sizing content window —
+                // the real bug behind "Recent Recordings is empty" even
+                // when sessionStore.sessions genuinely has entries (verified
+                // separately: refresh() was finding them correctly the
+                // whole time, logged every 3s — this was a pure layout bug,
+                // not a data bug). maxHeight caps it so a long list doesn't
+                // take over the screen.
+                .frame(minHeight: 80, maxHeight: 560)
             }
-            // Forces a real rebuild on every refresh — MenuBarExtra's
-            // .window style has been observed to cache its content and not
-            // reliably re-render on a plain @Published array mutation alone.
-            .id(sessionStore.lastRefreshed)
-            .frame(maxHeight: 560)
             Divider()
             HStack {
                 Button("Settings…") {

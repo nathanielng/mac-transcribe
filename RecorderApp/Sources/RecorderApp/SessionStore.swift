@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+import os
+
+private let logger = Logger(subsystem: "com.mac-transcribe.RecorderApp", category: "SessionStore")
 
 /// Polls the recordings folder + each session's status.json so the menu list
 /// reflects pipeline progress without the app needing IPC with the Python
@@ -7,12 +10,6 @@ import Combine
 @MainActor
 final class SessionStore: ObservableObject {
     @Published var sessions: [Session] = []
-    /// Bumped on every refresh() — see MenuBarView, which keys the list's
-    /// `.id()` to this. MenuBarExtra's `.window` style has been observed to
-    /// cache its content view and not always re-render on a plain
-    /// `@Published [Session]` mutation; forcing identity to change
-    /// guarantees a real re-render instead of relying on that diffing.
-    @Published var lastRefreshed = Date()
     private var timer: Timer?
 
     init() {
@@ -30,9 +27,14 @@ final class SessionStore: ObservableObject {
 
     func refresh() {
         let cfg = AppConfig.load()
-        try? FileManager.default.createDirectory(at: cfg.recordingsDir, withIntermediateDirectories: true)
-        sessions = Session.scan(recordingsDir: cfg.recordingsDir)
-        lastRefreshed = Date()
+        do {
+            try FileManager.default.createDirectory(at: cfg.recordingsDir, withIntermediateDirectories: true)
+        } catch {
+            logger.error("refresh() could not create/access \(cfg.recordingsDir.path, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
+        let scanned = Session.scan(recordingsDir: cfg.recordingsDir)
+        logger.notice("refresh() dir=\(cfg.recordingsDir.path, privacy: .public) found=\(scanned.count, privacy: .public) sessions=\(scanned.map { $0.id }.joined(separator: ","), privacy: .public)")
+        sessions = scanned
     }
 
     func regenerate(_ session: Session, stage: String) {
