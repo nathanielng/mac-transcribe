@@ -63,6 +63,16 @@ struct Session: Identifiable {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    /// Raw stdout/stderr from the most recent pipeline run on this session,
+    /// if any run has happened since PipelineRunner started writing it —
+    /// see PipelineRunner.run()'s doc comment for why this exists.
+    var pipelineLogURL: URL? {
+        let url = directory.appendingPathComponent(PipelineRunner.logFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int, size > 0 else { return nil }
+        return url
+    }
+
     /// True if any audio (mp3 or a not-yet-encoded wav) exists in the
     /// session folder — used to distinguish "pipeline never ran on this"
     /// (show a Run button) from "not actually a usable session," and to

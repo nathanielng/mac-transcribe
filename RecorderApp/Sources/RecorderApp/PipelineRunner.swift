@@ -20,6 +20,10 @@ enum PipelineRunner {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".venv/bin/python3")
     }
 
+    /// Name of the per-session raw stdout/stderr capture — see run()'s doc
+    /// comment on why this exists alongside status.json's own error field.
+    static let logFilename = "pipeline.log"
+
     /// force: which stages to force-regenerate, e.g. ["outline"] or ["title"].
     static func run(sessionDir: URL, force: Set<String> = []) {
         let process = Process()
@@ -35,6 +39,21 @@ enum PipelineRunner {
         // fixed there — python itself is less likely to touch termios, but
         // there's no reason for any of our subprocesses to share a terminal).
         process.standardInput = FileHandle.nullDevice
+
+        // status.json's "error" field only covers exceptions process.py
+        // itself catches — a hard crash before that (wrong venv path,
+        // missing mac_transcribe module, an import error, a bug that
+        // escapes every try/except) would otherwise leave genuinely no
+        // trace anywhere, matching a real report of "the button doesn't
+        // seem to do anything and I don't know where to look." Overwritten
+        // (not appended) each run, so it always reflects the most recent
+        // invocation only.
+        let logURL = sessionDir.appendingPathComponent(logFilename)
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        if let logHandle = try? FileHandle(forWritingTo: logURL) {
+            process.standardOutput = logHandle
+            process.standardError = logHandle
+        }
 
         do {
             try process.run()

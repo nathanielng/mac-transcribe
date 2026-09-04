@@ -252,12 +252,41 @@ private struct SessionRow: View {
                     .buttonStyle(.plain)
                     .help("Open outline HTML")
                 }
+                if let log = session.pipelineLogURL {
+                    Button(action: { NSWorkspace.shared.open(log) }) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(!failures.isEmpty ? .red : .secondary)
+                    .help("View pipeline.log (raw output from the last run — the place to look if a stage seems stuck with no error shown)")
+                }
             }
             .font(.caption)
+
+            // Hover tooltips (.help(), used on the ❌/🔑 status symbols below)
+            // are unreliable inside MenuBarExtra's transient popover, so
+            // don't rely on hover as the only way to see *why* something
+            // failed — show it directly, selectable so it can be copied
+            // into a bug report or search.
+            ForEach(failures, id: \.0) { stage, message in
+                Text("\(stage): \(message)")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+            }
         }
         .padding(6)
         .background(Color.gray.opacity(0.08))
         .cornerRadius(6)
+    }
+
+    private var failures: [(String, String)] {
+        var result: [(String, String)] = []
+        if case .failed(let msg) = session.transcriptState { result.append(("Transcript", msg)) }
+        if case .failed(let msg) = session.outlineState { result.append(("Outline", msg)) }
+        if case .failed(let msg) = session.titleState { result.append(("Title", msg)) }
+        return result
     }
 }
 
@@ -346,21 +375,42 @@ private struct StageChip: View {
         HStack(spacing: 3) {
             Text(label)
             Text(symbol).help(helpText)
-            if case .failed = state {
+            // Shown for .pending too, not just .failed: a stage stays
+            // "pending" forever in status.json if the pipeline never even
+            // attempted it — e.g. transcript failing means process.py
+            // returns before outline is ever touched — which otherwise left
+            // no way to manually kick it off at all, only an inert ⏳ with
+            // no action. Hidden for .running so a genuinely in-progress
+            // stage doesn't invite a confusing duplicate trigger.
+            if showActionButton {
                 Button(action: {
                     onRegenerate()
                     justClicked = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { justClicked = false }
                 }) {
-                    Image(systemName: "arrow.clockwise")
-                        .rotationEffect(.degrees(justClicked ? 360 : 0))
+                    Image(systemName: isPending ? "play.circle" : "arrow.clockwise")
+                        .rotationEffect(.degrees(justClicked && !isPending ? 360 : 0))
                 }
                 .buttonStyle(.plain)
                 .disabled(!canRegenerate)
                 .opacity(canRegenerate ? 1 : 0.3)
                 .animation(.easeInOut(duration: 0.6), value: justClicked)
-                .help(canRegenerate ? "Regenerate \(label.lowercased())" : disabledReason)
+                .help(canRegenerate
+                    ? (isPending ? "Start \(label.lowercased())" : "Regenerate \(label.lowercased())")
+                    : disabledReason)
             }
+        }
+    }
+
+    private var isPending: Bool {
+        if case .pending = state { return true }
+        return false
+    }
+
+    private var showActionButton: Bool {
+        switch state {
+        case .pending, .failed: return true
+        case .ok, .running: return false
         }
     }
 
