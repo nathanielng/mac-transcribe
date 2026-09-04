@@ -30,16 +30,32 @@ Produce a structured outline of it in EXACTLY this markdown format (nothing befo
 (add as many numbered sections as make sense to cover the whole transcript)
 ---
 ## Key Takeaways
+### Action Items / Next Steps
+| Item | Detail |
+|---|---|
+| <a concrete task, decision-to-execute, or follow-up someone needs to do> | <who (if stated) and any deadline/context> |
+(omit this ### subsection entirely if the transcript has none — most seminars/lectures won't)
+### Information
 | Point | Detail |
 |---|---|
-| <short takeaway> | <one-sentence elaboration> |
-(3-6 rows)
+| <a fact, decision, or finding worth remembering, that ISN'T an action item> | <one-sentence elaboration> |
+### Other
+| Point | Detail |
+|---|---|
+| <anything notable that doesn't fit the above two categories> | <one-sentence elaboration> |
+(omit this ### subsection entirely if everything fit into Information/Action Items)
 
 Rules:
 - Anchor snippets MUST be copied verbatim from the transcript text (they are used to \
 locate each section programmatically) — do not paraphrase them.
 - Cover the entire transcript across your sections, in chronological order.
 - Keep section titles short (3-8 words).
+- Action Items / Next Steps is specifically for things someone needs to DO after this \
+recording — a task, a decision to act on, a follow-up. Don't put general facts or \
+discussion points there even if they sound important; those belong under Information.
+- Every Key Takeaways subsection needs at least one row if you include it at all — omit \
+the whole ### subsection (heading and table) rather than including an empty or \
+padded-out one.
 
 Transcript:
 

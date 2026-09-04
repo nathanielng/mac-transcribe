@@ -214,3 +214,90 @@ def test_page_template_has_no_premature_script_close(tmp_path: Path):
     html = output_path.read_text()
 
     assert html.lower().count("</script>") == 1
+
+
+def test_build_html_renders_categorized_key_takeaways(tmp_path: Path):
+    """outline.py's prompt now asks for Key Takeaways split into ### Action
+    Items / Next Steps, ### Information, and ### Other subsections instead
+    of one flat table - html.py needed no code changes for this (its
+    markdown converter already handles arbitrary heading levels and
+    multiple tables in sequence), but this wasn't previously exercised with
+    more than one table in the footer block, so lock in that it actually
+    renders all three as separate <h3> + <table> pairs."""
+    outline_md = (
+        "# Outline: Test Session\n"
+        "- **Source:** local recording\n"
+        "---\n"
+        "Overview.\n"
+        "---\n"
+        "## 1. Introductions\n"
+        '<!-- anchor: "Hi everyone, thanks for joining." -->\n'
+        "**Summary:** The host opens the meeting.\n"
+        "---\n"
+        "## Key Takeaways\n"
+        "### Action Items / Next Steps\n"
+        "| Item | Detail |\n"
+        "|---|---|\n"
+        "| Send follow-up email | Owner: Alice, by Friday |\n"
+        "### Information\n"
+        "| Point | Detail |\n"
+        "|---|---|\n"
+        "| Budget approved | Next quarter's budget was discussed and approved |\n"
+        "### Other\n"
+        "| Point | Detail |\n"
+        "|---|---|\n"
+        "| Room booking issue | The usual meeting room was double-booked |\n"
+    )
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(TRANSCRIPT_MD)
+    outline_path.write_text(outline_md)
+
+    warnings = build_html(transcript_path, outline_path, output_path)
+
+    assert warnings == []
+    html = output_path.read_text()
+    assert "<h3>Action Items / Next Steps</h3>" in html
+    assert "<h3>Information</h3>" in html
+    assert "<h3>Other</h3>" in html
+    assert "Send follow-up email" in html
+    assert "Budget approved" in html
+    assert "Room booking issue" in html
+    # Three separate tables, not one merged table
+    assert html.count("<table>") == 3
+
+
+def test_build_html_renders_key_takeaways_with_only_some_categories(tmp_path: Path):
+    """The prompt tells the model to omit a ### subsection entirely (not
+    leave an empty table) when a category has no items - e.g. a seminar
+    with no action items. Confirm that renders fine with just one table."""
+    outline_md = (
+        "# Outline: Test Session\n"
+        "- **Source:** local recording\n"
+        "---\n"
+        "Overview.\n"
+        "---\n"
+        "## 1. Introductions\n"
+        '<!-- anchor: "Hi everyone, thanks for joining." -->\n'
+        "**Summary:** The host opens the meeting.\n"
+        "---\n"
+        "## Key Takeaways\n"
+        "### Information\n"
+        "| Point | Detail |\n"
+        "|---|---|\n"
+        "| Budget approved | Next quarter's budget was discussed |\n"
+    )
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(TRANSCRIPT_MD)
+    outline_path.write_text(outline_md)
+
+    warnings = build_html(transcript_path, outline_path, output_path)
+
+    assert warnings == []
+    html = output_path.read_text()
+    assert "<h3>Information</h3>" in html
+    assert "Action Items" not in html
+    assert html.count("<table>") == 1
