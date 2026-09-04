@@ -55,10 +55,24 @@ def render_transcript_md(title: str, date: str, sources: list[str], merged: list
         "## Transcript",
         "",
     ]
+
+    # Per-segment [You]/[Call] labels only mean anything when both mic and
+    # system audio are present — they mark which *source* a segment came
+    # from (mic = you, system = the call), not who's speaking. Whisper has
+    # no speaker diarization at all: with a single source, every segment
+    # trivially gets the same label regardless of how many people actually
+    # spoke into that one mic (e.g. an in-person meeting), which claims a
+    # per-speaker distinction that was never actually made. Show the label
+    # only when it's carrying real information.
+    show_labels = len(sources) > 1
+
     for seg in merged:
         ts = format_timestamp(seg["start"])
-        label = SOURCE_LABELS.get(seg["source"], seg["source"])
-        lines.append(f"**[{ts}] [{label}]** {seg['text']}")
+        if show_labels:
+            label = SOURCE_LABELS.get(seg["source"], seg["source"])
+            lines.append(f"**[{ts}] [{label}]** {seg['text']}")
+        else:
+            lines.append(f"**[{ts}]** {seg['text']}")
         lines.append("")
     return "\n".join(lines)
 

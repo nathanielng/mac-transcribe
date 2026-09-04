@@ -52,3 +52,29 @@ def test_render_transcript_md_mic_only_source_label():
 
     assert "- **Sources:** Mic" in md
     assert "System Audio" not in md
+
+
+def test_render_transcript_md_omits_per_segment_label_for_single_source():
+    """Whisper has no speaker diarization — with only one audio source,
+    every segment would trivially get the same [You]/[Call] tag regardless
+    of how many people actually spoke into that one mic, falsely implying a
+    per-speaker distinction that was never made. The tag only carries real
+    information when there are two sources (mic vs. system) to distinguish."""
+    merged = [
+        {"start": 0.0, "source": "mic", "text": "First thing."},
+        {"start": 5.0, "source": "mic", "text": "Second thing."},
+    ]
+
+    md = render_transcript_md("Test", "2026-08-15", ["mic"], merged)
+
+    assert "[You]" not in md
+    assert "**[00:00:00]** First thing." in md
+    assert "**[00:00:05]** Second thing." in md
+
+
+def test_render_transcript_md_shows_labels_for_two_sources():
+    merged = [{"start": 0.0, "source": "system", "text": "Solo system audio."}]
+
+    md = render_transcript_md("Test", "2026-08-15", ["mic", "system"], merged)
+
+    assert "**[00:00:00] [Call]** Solo system audio." in md
