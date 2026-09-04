@@ -37,6 +37,12 @@ struct MenuBarView: View {
                             SessionRow(session: session, sessionStore: sessionStore, audioPlayer: audioPlayer)
                         }
                     }
+                    // macOS's overlay scrollbar (default "when scrolling"
+                    // style) draws on top of content rather than reserving
+                    // its own space, so without this the rightmost row
+                    // buttons (open HTML, view log) sit right under the
+                    // scrollbar thumb and are hard to click precisely.
+                    .padding(.trailing, 12)
                 }
                 // ScrollView has no intrinsic content size of its own, so
                 // without an explicit minHeight it can collapse to zero
@@ -47,7 +53,7 @@ struct MenuBarView: View {
                 // whole time, logged every 3s — this was a pure layout bug,
                 // not a data bug). maxHeight caps it so a long list doesn't
                 // take over the screen.
-                .frame(minHeight: 80, maxHeight: 720)
+                .frame(minHeight: 80, maxHeight: 1440)
             }
             Divider()
             HStack {

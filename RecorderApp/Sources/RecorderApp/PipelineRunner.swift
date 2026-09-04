@@ -24,6 +24,12 @@ enum PipelineRunner {
     /// comment on why this exists alongside status.json's own error field.
     static let logFilename = "pipeline.log"
 
+    /// Keeps each Process (and its Pipe) alive for the duration of the run —
+    /// run() doesn't block/wait on the process, so without holding a strong
+    /// reference somewhere, ARC could deallocate them as soon as run()
+    /// returns, tearing down the pipe mid-stream.
+    private static var activeProcesses: [Process] = []
+
     /// force: which stages to force-regenerate, e.g. ["outline"] or ["title"].
     static func run(sessionDir: URL, force: Set<String> = []) {
         let process = Process()
@@ -50,13 +56,36 @@ enum PipelineRunner {
         // invocation only.
         let logURL = sessionDir.appendingPathComponent(logFilename)
         FileManager.default.createFile(atPath: logURL.path, contents: nil)
-        if let logHandle = try? FileHandle(forWritingTo: logURL) {
-            process.standardOutput = logHandle
-            process.standardError = logHandle
+        let logHandle = try? FileHandle(forWritingTo: logURL)
+
+        // Tee stdout+stderr (merged into one pipe) to both pipeline.log AND
+        // this app's own stdout — if RecorderApp itself is running attached
+        // to a real terminal (e.g. launched via `swift build && .build/
+        // debug/RecorderApp` in a screen/tmux session for development),
+        // pipeline progress shows up live there too, not just in the log
+        // file after the fact. Harmless no-op if RecorderApp's own stdout
+        // isn't attached to anything interactive.
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            try? logHandle?.write(contentsOf: data)
+            try? FileHandle.standardOutput.write(contentsOf: data)
+        }
+
+        process.terminationHandler = { finished in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            try? logHandle?.close()
+            DispatchQueue.main.async {
+                activeProcesses.removeAll { $0 === finished }
+            }
         }
 
         do {
             try process.run()
+            activeProcesses.append(process)
         } catch {
             NSLog("mac-transcribe: failed to launch pipeline: \(error)")
         }

@@ -35,41 +35,64 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
 
     # --- Stage 2: transcript ---
     if "transcript" in force or not status.stage_ok(session_dir, "transcript"):
+        print(f"[transcript] Transcribing with mlx-whisper (model={cfg['whisper_model']})...", flush=True)
         status.set_stage(session_dir, "transcript", "running")
         try:
             run_transcribe(session_dir, title, date_str, cfg["whisper_model"])
             status.set_stage(session_dir, "transcript", "ok")
+            print("[transcript] Done.", flush=True)
         except Exception as e:
             status.set_stage(session_dir, "transcript", "failed", str(e))
+            print(f"[transcript] FAILED: {e}", flush=True)
             return session_dir  # nothing downstream can run without a transcript
+    else:
+        print("[transcript] Already ok, skipping.", flush=True)
 
     transcript_md = (session_dir / "transcript.md").read_text()
 
     # --- Stage 3: outline + optional AI title/rename, concurrently ---
     run_title_stage = cfg.get("auto_rename_with_ai_title", True)
+    backend_desc = (
+        f"Bedrock (model={cfg['bedrock_model']}, region={cfg['bedrock_region']})"
+        if cfg["outline_backend"] == "bedrock"
+        else f"local MLX (model={cfg['mlx_outline_model']})"
+    )
 
     def do_outline():
         if "outline" in force or not status.stage_ok(session_dir, "outline"):
+            print(f"[outline] Submitting to {backend_desc}...", flush=True)
             status.set_stage(session_dir, "outline", "running")
             try:
                 run_outline(session_dir, title, cfg)
                 status.set_stage(session_dir, "outline", "ok")
+                print("[outline] Done.", flush=True)
             except OutlineAuthError as e:
                 status.set_stage(session_dir, "outline", "failed", f"auth: {e}")
+                print(f"[outline] FAILED (auth): {e}", flush=True)
             except Exception as e:
                 status.set_stage(session_dir, "outline", "failed", str(e))
+                print(f"[outline] FAILED: {e}", flush=True)
+        else:
+            print("[outline] Already ok, skipping.", flush=True)
 
     def do_title_slug() -> str | None:
         if not run_title_stage:
             return None
         if "title" in force or not status.stage_ok(session_dir, "title_rename"):
+            print(f"[title] Submitting to {backend_desc}...", flush=True)
             status.set_stage(session_dir, "title_rename", "running")
             try:
-                return generate_title_slug(transcript_md, cfg)
+                slug = generate_title_slug(transcript_md, cfg)
+                print(f"[title] Done: {slug!r}", flush=True)
+                return slug
             except OutlineAuthError as e:
                 status.set_stage(session_dir, "title_rename", "failed", f"auth: {e}")
+                print(f"[title] FAILED (auth): {e}", flush=True)
             except Exception as e:
                 status.set_stage(session_dir, "title_rename", "failed", str(e))
+                print(f"[title] FAILED: {e}", flush=True)
+        else:
+            print("[title] Already ok, skipping.", flush=True)
         return None
 
     # Both API calls only read transcript.md, so run them concurrently — but the
@@ -83,21 +106,35 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
         slug = title_future.result()
 
     if slug:
+        print(f"[title] Renaming session to use {slug!r}...", flush=True)
         session_dir = rename_session(session_dir, date_str, slug)
         status.set_stage(session_dir, "title_rename", "ok")
+        print(f"[title] Renamed to: {session_dir}", flush=True)
 
     # --- Stage 3b: HTML (only if outline succeeded) ---
     if status.stage_ok(session_dir, "outline"):
         html_path = session_dir / f"{session_dir.name}.html"
+        print(f"[html] Building {html_path.name}...", flush=True)
         try:
             build_html(session_dir / "transcript.md", session_dir / "outline.md", html_path)
+            print(f"[html] Saved: {html_path}", flush=True)
         except Exception as e:
             status.set_stage(session_dir, "outline", "failed", f"html merge: {e}")
+            print(f"[html] FAILED: {e}", flush=True)
 
     return session_dir
 
 
 def main():
+    # PipelineRunner.swift redirects this process's stdout/stderr to a log
+    # file (and, since the process isn't attached to a real terminal,
+    # Python defaults to fully-buffered rather than line-buffered stdout) —
+    # without this, every print() above sits in a buffer and only appears
+    # when the process exits, which looks identical to "nothing is being
+    # printed at all" for a job that takes any real time to run.
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     flags = {a for a in sys.argv[1:] if a.startswith("--force-")}
     force = {f.replace("--force-", "") for f in flags}

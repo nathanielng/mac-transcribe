@@ -191,3 +191,26 @@ def test_build_html_embeds_downloadable_transcript(tmp_path: Path):
     filename_match = re.search(r'TRANSCRIPT_FILENAME = "([^"]*)"', html)
     assert filename_match is not None
     assert filename_match.group(1) == "test-session-transcript.md"
+
+
+def test_page_template_has_no_premature_script_close(tmp_path: Path):
+    """Real bug: PAGE_TEMPLATE's JS block once had a comment containing the
+    literal text "</script>" as an example of what the code guards against.
+    HTML parsers scan <script> content for that exact byte sequence
+    case-insensitively, with zero awareness of JS syntax - they don't know
+    it was "just a comment." That closes the script tag right there,
+    dumping the rest of the real JS as visible text in the page body. The
+    fix isn't just "don't do that in the current comment" (a human could
+    reintroduce it in a future edit without realizing), so this asserts the
+    literal tag appears exactly once in the whole rendered page - the one
+    real closing tag - not just checks the specific line that broke once."""
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(TRANSCRIPT_MD)
+    outline_path.write_text(OUTLINE_MD)
+
+    build_html(transcript_path, outline_path, output_path)
+    html = output_path.read_text()
+
+    assert html.lower().count("</script>") == 1

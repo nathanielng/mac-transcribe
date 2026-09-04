@@ -407,8 +407,11 @@ PAGE_TEMPLATE = """<!doctype html>
   // Transcript" button works even if transcript.md itself has since been
   // deleted from disk — this HTML page is meant to be the thing that
   // survives after mp3/transcript cleanup. Base64 (rather than a plain JS
-  // string literal) sidesteps needing to escape quotes/backslashes/
-  // "</script>" sequences that might appear in real transcript text.
+  // string literal) sidesteps needing to escape quotes/backslashes/the
+  // script-closing tag that might appear in real transcript text. (Don't
+  // write that literal tag sequence in this comment either — an HTML
+  // parser looks for it as raw bytes anywhere inside <script>, including
+  // inside comments and strings, and closes the tag right there.)
   const TRANSCRIPT_B64 = "$transcript_b64";
   const TRANSCRIPT_FILENAME = "$transcript_filename";
   document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {
