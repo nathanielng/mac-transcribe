@@ -20,6 +20,7 @@ struct BedrockModelOption: Identifiable, Hashable {
     let label: String
 
     static let recommended: [BedrockModelOption] = [
+        BedrockModelOption(id: "zai.glm-5", label: "Z.ai GLM-5 (open-weight, default)"),
         BedrockModelOption(id: "global.anthropic.claude-sonnet-5", label: "Claude Sonnet 5"),
         BedrockModelOption(id: "deepseek.v3.2", label: "DeepSeek V3.2 (open-weight, Sonnet-tier)"),
         BedrockModelOption(id: "qwen.qwen3-vl-235b-a22b", label: "Qwen3-235B-A22B (open-weight, Haiku-tier)"),
@@ -62,7 +63,7 @@ struct AppConfig {
         "recordings_dir": defaultRecordingsDir.path,
         "whisper_model": "mlx-community/whisper-large-v3-turbo",
         "outline_backend": "bedrock",
-        "bedrock_model": "global.anthropic.claude-sonnet-5",
+        "bedrock_model": "zai.glm-5",
         "bedrock_region": "us-east-1",
         "bedrock_profile": "default",
         "mlx_outline_model": "mlx-community/Qwen3.5-4B-MLX-4bit",

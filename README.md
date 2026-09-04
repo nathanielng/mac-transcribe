@@ -12,8 +12,8 @@ Two components, coupled only through the filesystem:
   (`AVAudioEngine`) and/or system audio (`ScreenCaptureKit`, no BlackHole or
   similar driver required), encodes to MP3, and spawns the pipeline below.
 - **`pipeline/`** — a Python CLI. Transcribes with MLX-Whisper (on-device,
-  Apple Silicon GPU), generates an outline via Amazon Bedrock (Claude Sonnet
-  5 by default) or fully locally via MLX, and merges both into a
+  Apple Silicon GPU), generates an outline via Amazon Bedrock (Z.ai's GLM-5
+  by default) or fully locally via MLX, and merges both into a
   self-contained HTML page with a collapsible outline sidebar. The original
   transcript is embedded in the page itself (base64) behind a "Download
   Transcript" button — the HTML survives if you later delete the mp3s and
@@ -60,19 +60,26 @@ python3 -m pytest                  # pure-logic tests, no AWS/audio needed
 Outline generation (Stage 3) has two backends, selected by `outline_backend`:
 
 - **`bedrock`** (default) — requires AWS credentials with Bedrock access
-  (`aws sts get-caller-identity` should work) and access to the Claude
-  Sonnet 5 Global cross-region inference profile
-  (`global.anthropic.claude-sonnet-5`) in `us-east-1` — **this needs to be
-  requested manually** in the Bedrock console (Model access → request Claude
-  Sonnet 5) even with valid AWS credentials; it's not enabled by default. If
-  `AWS_BEARER_TOKEN_BEDROCK` is set in your environment, `pipeline`
-  explicitly clears it and uses IAM/SigV4 instead — see
-  `mac_transcribe/bedrock.py`. `bedrock_model` also accepts open-weight
-  models hosted on Bedrock as Sonnet/Haiku-tier alternatives, both verified
-  working: `deepseek.v3.2` or `qwen.qwen3-vl-235b-a22b`. Uses boto3's
-  `bedrock-runtime` Converse API (model-agnostic) rather than the `anthropic`
-  SDK's Bedrock client, which only speaks Claude's wire format and can't
-  actually invoke non-Anthropic models.
+  (`aws sts get-caller-identity` should work). Default model is Z.ai's
+  GLM-5 (`zai.glm-5`, open-weight) — reportedly competitive with Claude
+  Sonnet on summarization/outline-style tasks, and unlike Sonnet 5 it
+  doesn't require requesting model access first. `bedrock_model` also
+  accepts Claude Sonnet 5 (`global.anthropic.claude-sonnet-5`, the Global
+  cross-region inference profile — **needs to be requested manually** in
+  the Bedrock console under Model access even with valid AWS credentials;
+  not enabled by default) or other open-weight alternatives, all verified
+  working with real calls: `deepseek.v3.2` or `qwen.qwen3-vl-235b-a22b`
+  (cheaper/faster, Haiku-tier). If `AWS_BEARER_TOKEN_BEDROCK` is set in
+  your environment, `pipeline` explicitly clears it and uses IAM/SigV4
+  instead — see `mac_transcribe/bedrock.py`. Uses boto3's `bedrock-runtime`
+  Converse API
+  (model-agnostic) rather than the `anthropic` SDK's Bedrock client, which
+  only speaks Claude's wire format and can't actually invoke non-Anthropic
+  models. For Claude models specifically, extended thinking is explicitly
+  disabled (`additionalModelRequestFields: {"thinking": {"type":
+  "disabled"}}`) — outline/title generation don't need step-by-step
+  reasoning, and a reasoning phase can otherwise consume the entire
+  `maxTokens` budget before any usable text is produced.
 - **`mlx_lm`** — fully local, no AWS credentials or network needed. Install
   with `uv pip install -e ".[mlx_lm]"`. `mlx_outline_model` accepts any
   mlx-lm-compatible instruct model; default is
@@ -94,7 +101,7 @@ defaults on first run):
 recordings_dir = "~/Recordings/mac-transcribe"
 whisper_model = "mlx-community/whisper-large-v3-turbo"
 outline_backend = "bedrock"                  # or "mlx_lm"
-bedrock_model = "global.anthropic.claude-sonnet-5"
+bedrock_model = "zai.glm-5"
 bedrock_region = "us-east-1"
 bedrock_profile = "default"
 mlx_outline_model = "mlx-community/Qwen3.5-4B-MLX-4bit"

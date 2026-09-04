@@ -43,9 +43,37 @@ def get_client(region: str, profile: str | None = None):
 
 
 def converse(client, model: str, prompt: str, max_tokens: int) -> str:
-    response = client.converse(
-        modelId=model,
-        messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": max_tokens},
+    request: dict = {
+        "modelId": model,
+        "messages": [{"role": "user", "content": [{"text": prompt}]}],
+        "inferenceConfig": {"maxTokens": max_tokens},
+    }
+
+    # Claude models on Bedrock can return extended-thinking output as a
+    # reasoningContent block ahead of the text block. Outline/title
+    # generation here don't benefit from that (it's summarization, not a
+    # problem needing step-by-step reasoning), and the reasoning phase
+    # alone can consume the whole maxTokens budget before any text is ever
+    # produced (real failure: "Outline failed with 'text'" — a KeyError
+    # from assuming content[0] was always the text block). Explicitly
+    # disabling it removes that failure mode rather than just handling it.
+    # additionalModelRequestFields is Anthropic-specific, so only send it
+    # for Anthropic models — Bedrock doesn't guarantee ignoring unknown
+    # fields for other providers.
+    if "anthropic" in model.lower():
+        request["additionalModelRequestFields"] = {"thinking": {"type": "disabled"}}
+
+    response = client.converse(**request)
+    content = response["output"]["message"]["content"]
+
+    for block in content:
+        if "text" in block:
+            return block["text"]
+
+    block_types = [next(iter(block), "<empty>") for block in content]
+    raise RuntimeError(
+        f"Bedrock response for model {model!r} contained no text block "
+        f"(got block types: {block_types}) — the model may have returned "
+        f"only reasoning/tool-use content, or hit maxTokens before "
+        f"producing any text."
     )
-    return response["output"]["message"]["content"][0]["text"]

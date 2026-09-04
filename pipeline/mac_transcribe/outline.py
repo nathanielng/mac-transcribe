@@ -53,7 +53,11 @@ __all__ = ["OutlineAuthError", "generate_outline", "run"]
 
 def generate_outline(transcript_md: str, title: str, cfg: dict) -> str:
     prompt = OUTLINE_PROMPT.format(title=title, transcript=transcript_md)
-    return generate_text(prompt, cfg, max_tokens=4096)
+    # 4096 was too tight even without extended thinking for a long
+    # transcript with many sections; bedrock.converse() now disables
+    # thinking for Claude models outright (outline generation doesn't need
+    # step-by-step reasoning), but keep real headroom regardless.
+    return generate_text(prompt, cfg, max_tokens=8192)
 
 
 def run(session_dir: Path, title: str, cfg: dict) -> Path:
