@@ -44,8 +44,24 @@ struct Session: Identifiable {
     let title: String
     var status: SessionStatus?
 
-    var transcriptState: StageState { StageState(status?.stages["transcript"]) }
-    var outlineState: StageState { StageState(status?.stages["outline"]) }
+    /// Real bug: a session with no status.json at all — e.g. transcript.md
+    /// placed there some other way than the normal pipeline, or a run that
+    /// wrote transcript.md but crashed before ever writing status.json —
+    /// showed the transcript stage as "pending" (⏳) forever, even though
+    /// the transcript.md file sitting right there proves it's actually
+    /// done. Same for outline. Falls back to inferring completion from the
+    /// file's existence only when status.json has no opinion at all, so a
+    /// stage explicitly marked "failed"/"running" is never overridden.
+    var transcriptState: StageState {
+        if let s = status?.stages["transcript"] { return StageState(s) }
+        return hasTranscript ? .ok : .pending
+    }
+
+    var outlineState: StageState {
+        if let s = status?.stages["outline"] { return StageState(s) }
+        return hasOutline ? .ok : .pending
+    }
+
     var titleState: StageState { StageState(status?.stages["title_rename"]) }
 
     var htmlURL: URL? {
@@ -92,6 +108,10 @@ struct Session: Identifiable {
     /// there's nothing to regenerate from if that's been deleted too.
     var hasTranscript: Bool {
         FileManager.default.fileExists(atPath: directory.appendingPathComponent("transcript.md").path)
+    }
+
+    var hasOutline: Bool {
+        FileManager.default.fileExists(atPath: directory.appendingPathComponent("outline.md").path)
     }
 
     static func scan(recordingsDir: URL) -> [Session] {

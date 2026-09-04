@@ -422,7 +422,14 @@ private struct StageChip: View {
 
     private var symbol: String {
         switch state {
-        case .pending: return "⏳"
+        // .pending ("never run yet, nothing is happening right now") and
+        // .running ("actively in progress") used to share the same ⏳,
+        // which looked identical to "still going" right next to the
+        // Start/Regenerate button this same view shows for .pending —
+        // genuinely confusing, since one state wants you to wait and the
+        // other wants you to click something. ⏳ is now reserved for
+        // .running alone.
+        case .pending: return "⚪"
         case .running: return "⏳"
         case .ok: return "✅"
         case .failed(let msg): return msg.hasPrefix("auth:") ? "🔑" : "❌"
