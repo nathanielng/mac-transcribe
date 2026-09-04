@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Aggregate Action Items / Next Steps across sessions into one table.
+"""Aggregate Information (facts/decisions) across sessions into one table.
 
-Reads each session's outline.md (specifically the "### Action Items / Next
-Steps" subsection under Key Takeaways — see outline.py's OUTLINE_PROMPT),
-and writes one combined markdown + CSV table of every action item found,
-across however many sessions you point it at.
+Same idea as build_action_items.py, but for the "### Information"
+subsection under Key Takeaways instead of Action Items — the facts,
+decisions, and findings worth remembering that AREN'T action items (see
+outline.py's OUTLINE_PROMPT for exactly how the model is told to split
+these two categories apart).
 
 Accepts the same session-selection forms as regenerate_outlines.py: a
 session folder, a transcript.md file (parent folder used), or a root
@@ -12,15 +13,16 @@ folder containing multiple session folders one level down. If no paths are
 given, defaults to config.toml's recordings_dir (i.e. "every session").
 
 Usage (from pipeline/, with the venv active):
-    python3 scripts/build_action_items.py                              # everything in recordings_dir
-    python3 scripts/build_action_items.py ~/Recordings/mac-transcribe
-    python3 scripts/build_action_items.py session-a/ session-b/
-    python3 scripts/build_action_items.py --since 2026-08-01 --until 2026-08-31
-    python3 scripts/build_action_items.py --output ~/Desktop/action-items
+    python3 scripts/build_information.py                              # everything in recordings_dir
+    python3 scripts/build_information.py ~/Recordings/mac-transcribe
+    python3 scripts/build_information.py session-a/ session-b/
+    python3 scripts/build_information.py --since 2026-08-01 --until 2026-08-31
+    python3 scripts/build_information.py --output ~/Desktop/facts
 
-Writes <output>.md and <output>.csv (default "./action_items"). Columns:
-date, session_title, action_item, detail, html_path, status (the last left
-blank — for you to fill in outside this tool, e.g. Done/Pending/Blocked).
+Writes <output>.md and <output>.csv (default "./information"). Columns:
+date, session_title, point, detail, html_path. No status column (unlike
+build_action_items.py) — "done/pending" doesn't mean anything for a fact,
+only for a task.
 
 Sessions without an outline.md (outline stage never ran or failed) fall
 back to the outline embedded (base64) in the session's HTML — html.py
@@ -57,8 +59,8 @@ def main():
     parser.add_argument("--since", type=str, default=None, help="Only sessions dated on/after this (YYYY-MM-DD)")
     parser.add_argument("--until", type=str, default=None, help="Only sessions dated on/before this (YYYY-MM-DD)")
     parser.add_argument(
-        "--output", type=Path, default=Path("action_items"),
-        help="Output path without extension (writes <output>.md and <output>.csv). Default: ./action_items",
+        "--output", type=Path, default=Path("information"),
+        help="Output path without extension (writes <output>.md and <output>.csv). Default: ./information",
     )
     args = parser.parse_args()
 
@@ -104,18 +106,17 @@ def main():
             skipped_no_outline.append(session_dir)
             continue
 
-        items = extract_table_rows(outline_text, "Action Items")
-        for item, detail in items:
+        points = extract_table_rows(outline_text, "Information")
+        for point, detail in points:
             rows.append({
                 "date": date_str,
                 "session_title": title.replace("-", " "),
-                "action_item": item,
+                "point": point,
                 "detail": detail,
                 "html_path": str(html_path) if html_path.exists() else "",
-                "status": "",
             })
 
-    print(f"Found {len(rows)} action item(s) across {len(session_dirs) - len(skipped_no_outline) - len(skipped_bad_date) - len(skipped_out_of_range)} session(s) with an outline.")
+    print(f"Found {len(rows)} information item(s) across {len(session_dirs) - len(skipped_no_outline) - len(skipped_bad_date) - len(skipped_out_of_range)} session(s) with an outline.")
     if skipped_out_of_range:
         print(f"  {len(skipped_out_of_range)} session(s) outside --since/--until range, skipped.")
     if skipped_bad_date:
@@ -123,7 +124,7 @@ def main():
     if skipped_no_outline:
         print(f"  {len(skipped_no_outline)} session(s) skipped: no outline.md (outline stage never ran or failed).")
 
-    columns = ["date", "session_title", "action_item", "detail", "html_path", "status"]
+    columns = ["date", "session_title", "point", "detail", "html_path"]
 
     md_lines = ["| " + " | ".join(c.replace("_", " ").title() for c in columns) + " |",
                 "|" + "|".join("---" for _ in columns) + "|"]
