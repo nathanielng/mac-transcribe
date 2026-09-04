@@ -33,7 +33,14 @@ Every recording becomes one folder:
 
 If both mic and system audio are recorded, both are transcribed separately
 and merged into one transcript ordered by timestamp, labeled `[You]` /
-`[Call]`. An optional stage generates a short AI title from the transcript
+`[Call]` — MLX-Whisper has no speaker diarization, so this label marks
+which *source* a segment came from (mic vs. system), not who's speaking;
+it's only shown when there are two sources to distinguish. A single-source
+transcript (mic-only, the common case for an in-person meeting recorded on
+one device) has no per-segment label at all, since one source recording
+multiple people talking can't be told apart into individual speakers
+either way — labeling everything "[You]" would misrepresent that. An
+optional stage generates a short AI title from the transcript
 and renames the whole session (mp3s, transcript, outline, html, folder) to
 use it — runs concurrently with outline generation, gated by
 `auto_rename_with_ai_title` in the config. The rename also updates the
