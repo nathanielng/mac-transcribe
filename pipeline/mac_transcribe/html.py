@@ -23,6 +23,7 @@ import re
 import sys
 from pathlib import Path
 from html import escape
+from string import Template
 
 
 def resolve_outline_path(transcript: Path) -> Path:
@@ -255,111 +256,111 @@ PAGE_TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title}</title>
+<title>$title</title>
 <style>
-  :root {{
+  :root {
     --bg: #1B1B2F; --surface: #22223A; --surface2: #2A2A45;
     --accent: #00B4D8; --accent2: #48CAE4; --text: #E0E0E0;
     --muted: #999999; --light: #CCCCCC; --border: #3a3a5c;
     --table-header: #00769E; --table-even: #2A2A45; --table-odd: #22223A;
     --btn-active-fg: #10131c;
-  }}
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  html {{ scroll-behavior: smooth; }}
-  body {{
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
     background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-size: 16px; line-height: 1.7; display: flex; min-height: 100vh;
-  }}
+  }
 
-  nav {{
+  nav {
     width: 260px; min-width: 260px; background: var(--surface); border-right: 1px solid var(--border);
     padding: 1.2rem 1rem 2rem; position: sticky; top: 0; height: 100vh;
     overflow-y: auto; overflow-x: hidden;
     transition: width 0.22s ease, min-width 0.22s ease, padding 0.22s ease;
-  }}
-  nav.collapsed {{ width: 48px; min-width: 48px; padding: 1.2rem 0.4rem 2rem; }}
-  nav.collapsed .nav-inner {{ opacity: 0; pointer-events: none; }}
-  .nav-inner {{ transition: opacity 0.15s ease; }}
-  .nav-toggle {{ display: flex; align-items: center; justify-content: flex-end; margin-bottom: 1rem; }}
-  .nav-toggle button, .nav-expand {{
+  }
+  nav.collapsed { width: 48px; min-width: 48px; padding: 1.2rem 0.4rem 2rem; }
+  nav.collapsed .nav-inner { opacity: 0; pointer-events: none; }
+  .nav-inner { transition: opacity 0.15s ease; }
+  .nav-toggle { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 1rem; }
+  .nav-toggle button, .nav-expand {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 0.3rem 0.45rem; line-height: 1;
     font-size: 0.9rem; transition: color 0.15s, background 0.15s;
-  }}
-  .nav-toggle button:hover, .nav-expand:hover {{ color: var(--accent); background: #2e2e4a; }}
-  .nav-expand {{ display: none; position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); }}
-  nav.collapsed .nav-expand {{ display: block; }}
-  nav.collapsed .nav-toggle {{ display: none; }}
-  nav .logo {{ font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: 0.3rem; }}
-  nav .subtitle {{ font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem; word-break: break-all; }}
-  nav ul {{ list-style: none; }}
-  nav ul li {{ margin: 0.15rem 0; }}
-  nav ul li a {{
+  }
+  .nav-toggle button:hover, .nav-expand:hover { color: var(--accent); background: #2e2e4a; }
+  .nav-expand { display: none; position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); }
+  nav.collapsed .nav-expand { display: block; }
+  nav.collapsed .nav-toggle { display: none; }
+  nav .logo { font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: 0.3rem; }
+  nav .subtitle { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem; word-break: break-all; }
+  nav ul { list-style: none; }
+  nav ul li { margin: 0.15rem 0; }
+  nav ul li a {
     display: block; padding: 0.35rem 0.6rem; border-radius: 6px; color: var(--light);
     text-decoration: none; font-size: 0.85rem; transition: background 0.15s, color 0.15s;
     border-left: 3px solid transparent;
-  }}
-  nav ul li a:hover {{ background: var(--surface2); color: var(--accent2); }}
-  nav ul li a.active {{ background: #1e3a42; color: var(--accent); border-left-color: var(--accent); font-weight: 600; }}
+  }
+  nav ul li a:hover { background: var(--surface2); color: var(--accent2); }
+  nav ul li a.active { background: #1e3a42; color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
 
-  main {{ flex: 1; max-width: 860px; padding: 3rem 3rem 5rem; overflow-x: hidden; }}
+  main { flex: 1; max-width: 860px; padding: 3rem 3rem 5rem; overflow-x: hidden; }
 
-  .page-header {{ margin-bottom: 3rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }}
-  .page-header h1 {{ font-size: 2rem; color: var(--accent); font-weight: 800; margin-bottom: 0.5rem; }}
-  .page-header .meta {{ display: flex; gap: 1rem; flex-wrap: wrap; }}
-  .badge {{
+  .page-header { margin-bottom: 3rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+  .page-header h1 { font-size: 2rem; color: var(--accent); font-weight: 800; margin-bottom: 0.5rem; }
+  .page-header .meta { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .badge {
     display: inline-flex; align-items: center; gap: 0.3rem; background: var(--surface2);
     border: 1px solid var(--border); border-radius: 20px; padding: 0.2rem 0.7rem;
     font-size: 0.78rem; color: var(--light);
-  }}
-  .badge a {{ color: var(--accent2); text-decoration: none; }}
-  .badge a:hover {{ text-decoration: underline; }}
+  }
+  .badge a { color: var(--accent2); text-decoration: none; }
+  .badge a:hover { text-decoration: underline; }
 
-  section {{ margin-bottom: 3rem; scroll-margin-top: 1rem; }}
-  h2 {{
+  section { margin-bottom: 3rem; scroll-margin-top: 1rem; }
+  h2 {
     font-size: 1.4rem; color: var(--accent); font-weight: 700; margin-bottom: 1rem;
     padding-bottom: 0.4rem; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 0.5rem;
-  }}
-  h2 .icon {{ font-size: 1.1rem; }}
-  p {{ margin-bottom: 0.8rem; color: var(--light); }}
+  }
+  h2 .icon { font-size: 1.1rem; }
+  p { margin-bottom: 0.8rem; color: var(--light); }
 
-  .table-wrap {{ overflow-x: auto; margin: 0.8rem 0 1rem; border-radius: 8px; border: 1px solid var(--border); }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  thead th {{ background: var(--table-header); color: #fff; padding: 0.6rem 1rem; text-align: left; font-size: 0.85rem; font-weight: 600; }}
-  tbody tr:nth-child(even) td {{ background: var(--table-even); }}
-  tbody tr:nth-child(odd) td {{ background: var(--table-odd); }}
-  tbody tr:hover td {{ background: #323255; }}
-  td {{ padding: 0.5rem 1rem; font-size: 0.875rem; border-top: 1px solid var(--border); color: var(--light); vertical-align: top; }}
+  .table-wrap { overflow-x: auto; margin: 0.8rem 0 1rem; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--table-header); color: #fff; padding: 0.6rem 1rem; text-align: left; font-size: 0.85rem; font-weight: 600; }
+  tbody tr:nth-child(even) td { background: var(--table-even); }
+  tbody tr:nth-child(odd) td { background: var(--table-odd); }
+  tbody tr:hover td { background: #323255; }
+  td { padding: 0.5rem 1rem; font-size: 0.875rem; border-top: 1px solid var(--border); color: var(--light); vertical-align: top; }
 
-  .callout {{
+  .callout {
     background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
     padding: 0.8rem 1.1rem; margin: 0.8rem 0 1rem; font-size: 0.9rem; color: var(--light); font-style: italic;
-  }}
+  }
 
-  .badge-btn {{
+  .badge-btn {
     all: unset; display: inline-flex; align-items: center; gap: 0.3rem; background: var(--surface2);
     border: 1px solid var(--border); border-radius: 20px; padding: 0.2rem 0.7rem;
     font-size: 0.78rem; color: var(--light); cursor: pointer; box-sizing: border-box;
-  }}
-  .badge-btn:hover {{ background: #2e2e4a; color: var(--accent2); }}
+  }
+  .badge-btn:hover { background: #2e2e4a; color: var(--accent2); }
 
-  .block-header {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }}
-  .block-header h2 {{ margin: 0; border-bottom: none; padding-bottom: 0; flex: 1; }}
-  .toggle {{ display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }}
-  .toggle-btn {{
+  .block-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .block-header h2 { margin: 0; border-bottom: none; padding-bottom: 0; flex: 1; }
+  .toggle { display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+  .toggle-btn {
     border: none; background: transparent; color: var(--light); font-size: 0.82rem;
     padding: 0.3rem 0.9rem; border-radius: 999px; cursor: pointer;
-  }}
-  .toggle-btn.active {{ background: var(--accent); color: var(--btn-active-fg); font-weight: 600; }}
-  .view {{ display: none; }}
-  .view.active {{ display: block; }}
+  }
+  .toggle-btn.active { background: var(--accent); color: var(--btn-active-fg); font-weight: 600; }
+  .view { display: none; }
+  .view.active { display: block; }
 
-  @media (max-width: 900px) {{
-    nav {{ display: none; }}
-    main {{ padding: 2rem 1.5rem 4rem; max-width: 100%; }}
-  }}
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { padding: 2rem 1.5rem 4rem; max-width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -371,33 +372,33 @@ PAGE_TEMPLATE = """<!doctype html>
       <button id="navCollapse" title="Collapse sidebar">&#x276E;</button>
     </div>
     <div class="logo">Contents</div>
-    <div class="subtitle">{title}</div>
+    <div class="subtitle">$title</div>
     <ul id="navLinks">
-      {nav_html}
+      $nav_html
     </ul>
   </div>
 </nav>
 
 <main>
   <div class="page-header">
-    <h1>{title}</h1>
+    <h1>$title</h1>
     <div class="meta">
-      <span class="badge">📅 {date}</span>
-      <span class="badge">🎙️ {sources}</span>
+      <span class="badge">📅 $date</span>
+      <span class="badge">🎙️ $sources</span>
       <button class="badge-btn" id="downloadTranscriptBtn">⬇️ Download Transcript</button>
     </div>
   </div>
 
   <section id="overview">
     <h2><span class="icon">📝</span> Overview</h2>
-    {overview_html}
+    $overview_html
   </section>
 
-  {blocks_html}
+  $blocks_html
 
   <section id="key-takeaways">
     <h2><span class="icon">✅</span> Key Takeaways</h2>
-    {footer_html}
+    $footer_html
   </section>
 </main>
 
@@ -408,14 +409,14 @@ PAGE_TEMPLATE = """<!doctype html>
   // survives after mp3/transcript cleanup. Base64 (rather than a plain JS
   // string literal) sidesteps needing to escape quotes/backslashes/
   // "</script>" sequences that might appear in real transcript text.
-  const TRANSCRIPT_B64 = "{transcript_b64}";
-  const TRANSCRIPT_FILENAME = "{transcript_filename}";
-  document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {{
+  const TRANSCRIPT_B64 = "$transcript_b64";
+  const TRANSCRIPT_FILENAME = "$transcript_filename";
+  document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {
     const binary = atob(TRANSCRIPT_B64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const text = new TextDecoder('utf-8').decode(bytes);
-    const blob = new Blob([text], {{ type: 'text/markdown' }});
+    const blob = new Blob([text], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -424,7 +425,7 @@ PAGE_TEMPLATE = """<!doctype html>
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }});
+  });
 
   const sidebar = document.getElementById('sidebar');
   document.getElementById('navCollapse').addEventListener('click', () => sidebar.classList.add('collapsed'));
@@ -433,37 +434,37 @@ PAGE_TEMPLATE = """<!doctype html>
   const sections = document.querySelectorAll('main section[id]');
   const navLinks = document.querySelectorAll('#navLinks a');
 
-  function setActive(id) {{
-    navLinks.forEach(a => {{
+  function setActive(id) {
+    navLinks.forEach(a => {
       const isActive = a.getAttribute('href') === '#' + id;
       a.classList.toggle('active', isActive);
-      if (isActive) a.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
-    }});
-  }}
+      if (isActive) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
 
   const visible = new Map();
-  const observer = new IntersectionObserver((entries) => {{
+  const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => visible.set(e.target.id, e.isIntersecting));
-    for (const section of sections) {{
-      if (visible.get(section.id)) {{ setActive(section.id); return; }}
-    }}
-  }}, {{ rootMargin: '0px 0px -60% 0px', threshold: 0 }});
+    for (const section of sections) {
+      if (visible.get(section.id)) { setActive(section.id); return; }
+    }
+  }, { rootMargin: '0px 0px -60% 0px', threshold: 0 });
   sections.forEach(s => observer.observe(s));
 
-  document.querySelectorAll('section').forEach(function (block) {{
-    block.querySelectorAll('.toggle-btn').forEach(function (btn) {{
-      btn.addEventListener('click', function () {{
+  document.querySelectorAll('section').forEach(function (block) {
+    block.querySelectorAll('.toggle-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
         var view = btn.dataset.view;
-        block.querySelectorAll('.toggle-btn').forEach(function (b) {{
+        block.querySelectorAll('.toggle-btn').forEach(function (b) {
           b.classList.toggle('active', b === btn);
           b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
-        }});
-        block.querySelectorAll('.view').forEach(function (v) {{
+        });
+        block.querySelectorAll('.view').forEach(function (v) {
           v.classList.toggle('active', v.classList.contains('view-' + view));
-        }});
-      }});
-    }});
-  }});
+        });
+      });
+    });
+  });
 </script>
 </body>
 </html>
@@ -492,7 +493,17 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
     transcript_b64 = base64.b64encode(raw_transcript_text.encode("utf-8")).decode("ascii")
     title_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "transcript"
 
-    page = PAGE_TEMPLATE.format(
+    # Template (stdlib string.Template, $-style) rather than str.format():
+    # PAGE_TEMPLATE is mostly literal CSS/JS, which uses { and } constantly.
+    # .format() required doubling every single one of those as {{ }} to
+    # keep them literal — easy to get wrong when editing the template, and
+    # the kind of mistake that only surfaces as a KeyError/mangled page at
+    # render time. Template's $name placeholders don't collide with CSS/JS
+    # syntax at all, so the template body is just normal CSS/JS with no
+    # escaping anywhere. (Substituted values are inserted verbatim and are
+    # never re-scanned for $ or { — confirmed directly — so this is about
+    # template maintainability, not a live substitution-safety bug.)
+    page = Template(PAGE_TEMPLATE).substitute(
         title=escape(title),
         date=escape(date),
         sources=escape(sources),

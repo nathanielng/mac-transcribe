@@ -107,6 +107,64 @@ def test_build_html_raises_on_outline_with_no_sections(tmp_path: Path):
         build_html(transcript_path, outline_path, output_path)
 
 
+def test_build_html_handles_braces_and_dollar_signs_in_content(tmp_path: Path):
+    """PAGE_TEMPLATE is rendered with string.Template ($-style), not
+    str.format() ({}-style) — real transcript/outline content can contain
+    literal braces (code snippets, JSON someone read aloud) or dollar signs
+    without corrupting the page or raising, regardless of which
+    substitution mechanism is used (neither re-scans substituted values —
+    verified directly), but this locks in the actual rendered behavior."""
+    transcript_md = (
+        "# Test Session\n"
+        "- **Date:** 2026-08-15\n"
+        "- **Sources:** Mic\n\n"
+        "## Transcript\n\n"
+        '**[00:00:00] [You]** Config snippet: {"key": "value"} and $HOME and unicode 日本語.\n'
+    )
+    outline_md = (
+        "# Outline: Test Session\n"
+        "- **Source:** local recording\n"
+        "---\n"
+        "Overview mentioning {braces} and $dollars too.\n"
+        "---\n"
+        "## 1. Config Snippet\n"
+        '<!-- anchor: "Config snippet:" -->\n'
+        "**Summary:** Discusses a config with {braces} and a $VAR.\n"
+        "---\n"
+        "## Key Takeaways\n"
+        "| Point | Detail |\n"
+        "|---|---|\n"
+        "| Braces | {a} $b handled fine |\n"
+    )
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(transcript_md)
+    outline_path.write_text(outline_md)
+
+    warnings = build_html(transcript_path, outline_path, output_path)
+
+    assert warnings == []
+    html = output_path.read_text()
+
+    # Outline/summary text goes through convert_markdown()'s inline() escaper
+    # (HTML-escaped, not raw) but should still be present, braces/dollars intact.
+    assert "{braces}" in html
+    assert "$dollars" in html
+    assert "{a} $b handled fine" in html
+
+    # The transcript body itself is only present base64-encoded (for the
+    # Download Transcript button), not as raw/escaped text in the page body —
+    # decode it and confirm the original braces/dollar-sign content survived
+    # the whole Template-substitution pipeline intact.
+    import base64
+    b64_match = re.search(r'TRANSCRIPT_B64 = "([^"]*)"', html)
+    assert b64_match is not None
+    decoded = base64.b64decode(b64_match.group(1)).decode("utf-8")
+    assert '{"key": "value"}' in decoded
+    assert "$HOME" in decoded
+
+
 def test_build_html_embeds_downloadable_transcript(tmp_path: Path):
     """The HTML must let you regenerate transcript.md even after it's been
     deleted from disk (a real user workflow: keep the HTML, delete mp3s and
