@@ -144,16 +144,32 @@ without this there's no sign of life from a terminal. Look for the mic icon
   way to manually trigger it, just an inert ⏳ with no action. Hidden for
   `.running` so an actually-in-progress stage doesn't invite a confusing
   duplicate click.
-- **`pipeline.log`** — `PipelineRunner` now captures the pipeline
-  subprocess's raw stdout/stderr to `<session-dir>/pipeline.log`
-  (overwritten each run), since `status.json`'s error field only covers
-  exceptions `process.py` itself catches — a hard crash before that (wrong
-  venv path, missing module) previously left zero trace anywhere. A 📄
-  button appears on the row when the file has content.
+- **`pipeline.log`** — `PipelineRunner` captures the pipeline subprocess's
+  raw stdout/stderr, teed via a `Pipe` + `readabilityHandler` to both
+  `<session-dir>/pipeline.log` (overwritten each run — `status.json`'s
+  error field only covers exceptions `process.py` itself catches, a hard
+  crash before that previously left zero trace anywhere) *and*
+  RecorderApp's own stdout, so pipeline progress shows up live in a
+  terminal running RecorderApp directly (e.g. a dev `screen`/`tmux`
+  session), not only after the fact in the log file. The `Process`/`Pipe`
+  are kept alive via a static array since `run()` doesn't block waiting for
+  the subprocess. A 📄 button appears on the row when the log file has
+  content. `process.py` itself now also prints real stage-by-stage
+  progress (which backend/model an outline submission went to, when
+  html.py runs, done/failed per stage) with `sys.stdout.reconfigure
+  (line_buffering=True)` — Python fully buffers stdout when it isn't a
+  real tty, so without this the new output wouldn't appear until the
+  process exited either.
 - **Failed-stage errors are shown directly, not just on hover** —
   `.help()` tooltips are unreliable inside `MenuBarExtra`'s transient
   popover, so error text now also renders as selectable red text under the
   row.
+- Recent Recordings list: trailing padding on the scrollable content so
+  macOS's overlay scrollbar (draws on top of content, doesn't reserve its
+  own space) doesn't sit on top of the rightmost row buttons. Max height
+  1440 (was 720) — in practice the popover's actual height is capped by
+  available screen space regardless, so this mostly matters on larger
+  displays or when the menu bar icon sits lower on screen.
 
 ## Not yet implemented / known gaps
 
