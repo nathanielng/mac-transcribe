@@ -77,9 +77,12 @@ Outline generation (Stage 3) has two backends, selected by `outline_backend`:
   with `uv pip install -e ".[mlx_lm]"`. `mlx_outline_model` accepts any
   mlx-lm-compatible instruct model; default is
   `mlx-community/Qwen3.5-4B-MLX-4bit` (fast, ~4GB), with
-  `mlx-community/Qwen3.5-9B-MLX-4bit` or `mlx-community/Qwen3.5-27B-4bit`
-  as higher-quality/higher-RAM options — same Qwen3.5 model family offered
-  in RecorderApp's Settings picker.
+  `mlx-community/Qwen3.5-9B-MLX-4bit` (~6GB) or `mlx-community/Qwen3.8-27B-4bit`
+  (~16GB, highest quality) as higher-RAM options — same models offered in
+  RecorderApp's Settings picker. All download from Hugging Face on first
+  use via `mlx_lm.load()` (which uses `huggingface_hub` under the hood,
+  the same mechanism mlx-whisper already uses for transcription), cached
+  under `~/.cache/huggingface/hub/` — no separate pull/download step.
 
 Transcription (Stage 2) is local-only via `mlx-whisper`; `whisper_model`
 accepts any mlx-whisper-compatible model repo as a drop-in swap.
