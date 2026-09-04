@@ -386,6 +386,7 @@ PAGE_TEMPLATE = """<!doctype html>
       <span class="badge">📅 $date</span>
       <span class="badge">🎙️ $sources</span>
       <button class="badge-btn" id="downloadTranscriptBtn">⬇️ Download Transcript</button>
+      <button class="badge-btn" id="downloadOutlineBtn">⬇️ Download Outline</button>
     </div>
   </div>
 
@@ -403,31 +404,46 @@ PAGE_TEMPLATE = """<!doctype html>
 </main>
 
 <script>
-  // The original transcript.md, base64-encoded, embedded so the "Download
-  // Transcript" button works even if transcript.md itself has since been
+  // The original transcript.md AND outline.md, base64-encoded and embedded
+  // so both Download buttons work even after those files have since been
   // deleted from disk — this HTML page is meant to be the thing that
-  // survives after mp3/transcript cleanup. Base64 (rather than a plain JS
-  // string literal) sidesteps needing to escape quotes/backslashes/the
-  // script-closing tag that might appear in real transcript text. (Don't
-  // write that literal tag sequence in this comment either — an HTML
-  // parser looks for it as raw bytes anywhere inside <script>, including
-  // inside comments and strings, and closes the tag right there.)
+  // survives after mp3/transcript/outline cleanup, and other tooling (see
+  // pipeline/scripts/build_action_items.py) can recover the full outline
+  // markdown — not just what's rendered here — straight out of this page
+  // with no server, no re-running the outline LLM call, nothing but a
+  // browser or a script that knows to look for these two constants. Base64
+  // (rather than a plain JS string literal) sidesteps needing to escape
+  // quotes/backslashes/the script-closing tag that might appear in real
+  // transcript/outline text. (Don't write that literal tag sequence in
+  // this comment either — an HTML parser looks for it as raw bytes
+  // anywhere inside <script>, including inside comments and strings, and
+  // closes the tag right there.)
   const TRANSCRIPT_B64 = "$transcript_b64";
   const TRANSCRIPT_FILENAME = "$transcript_filename";
-  document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {
-    const binary = atob(TRANSCRIPT_B64);
+  const OUTLINE_B64 = "$outline_b64";
+  const OUTLINE_FILENAME = "$outline_filename";
+
+  function downloadBase64(b64, filename, mimeType) {
+    const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const text = new TextDecoder('utf-8').decode(bytes);
-    const blob = new Blob([text], { type: 'text/markdown' });
+    const blob = new Blob([text], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = TRANSCRIPT_FILENAME;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('downloadTranscriptBtn').addEventListener('click', () => {
+    downloadBase64(TRANSCRIPT_B64, TRANSCRIPT_FILENAME, 'text/markdown');
+  });
+  document.getElementById('downloadOutlineBtn').addEventListener('click', () => {
+    downloadBase64(OUTLINE_B64, OUTLINE_FILENAME, 'text/markdown');
   });
 
   const sidebar = document.getElementById('sidebar');
@@ -479,8 +495,9 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
     warnings = []
 
     raw_transcript_text = transcript_path.read_text()
+    raw_outline_text = outline_path.read_text()
     title, date, sources, normalized_transcript = parse_transcript(raw_transcript_text)
-    overview_html, sections, footer_html = parse_outline(outline_path.read_text())
+    overview_html, sections, footer_html = parse_outline(raw_outline_text)
 
     if not sections:
         raise ValueError("no sections found in outline (expected '## N. Title' headings)")
@@ -494,6 +511,7 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
     nav_html = build_nav(sections)
 
     transcript_b64 = base64.b64encode(raw_transcript_text.encode("utf-8")).decode("ascii")
+    outline_b64 = base64.b64encode(raw_outline_text.encode("utf-8")).decode("ascii")
     title_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "transcript"
 
     # Template (stdlib string.Template, $-style) rather than str.format():
@@ -516,6 +534,8 @@ def build_html(transcript_path: Path, outline_path: Path, output_path: Path) -> 
         blocks_html=blocks_html,
         transcript_b64=transcript_b64,
         transcript_filename=f"{title_slug}-transcript.md",
+        outline_b64=outline_b64,
+        outline_filename=f"{title_slug}-outline.md",
     )
 
     output_path.write_text(page)

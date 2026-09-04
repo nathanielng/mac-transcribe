@@ -37,37 +37,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mac_transcribe import status  # noqa: E402
 from mac_transcribe.process import process_session  # noqa: E402
-
-
-def resolve_session_dirs(path: Path) -> list[Path]:
-    """Expands a single CLI argument into the session folder(s) it refers to."""
-    if not path.exists():
-        raise FileNotFoundError(f"No such file or directory: {path}")
-
-    if path.is_file():
-        if path.name != "transcript.md":
-            raise ValueError(f"{path}: expected a file named transcript.md")
-        return [path.parent]
-
-    direct = path / "transcript.md"
-    if direct.exists():
-        return [path]  # path itself is a session folder
-
-    # No transcript.md directly here — treat path as a root containing
-    # multiple session folders (e.g. the whole recordings_dir) and look one
-    # level down, matching how RecorderApp lays sessions out.
-    found = sorted(
-        child for child in path.iterdir()
-        if child.is_dir() and (child / "transcript.md").exists()
-    )
-    if not found:
-        raise ValueError(
-            f"{path}: no transcript.md here, and no immediate subfolder has one either"
-        )
-    return found
+from _session_discovery import resolve_all  # noqa: E402
 
 
 def main():
@@ -93,18 +67,11 @@ def main():
     )
     args = parser.parse_args()
 
-    session_dirs: list[Path] = []
-    seen: set[Path] = set()
-    for raw in args.paths:
-        try:
-            resolved = resolve_session_dirs(raw.expanduser().resolve())
-        except (FileNotFoundError, ValueError) as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-        for session_dir in resolved:
-            if session_dir not in seen:
-                seen.add(session_dir)
-                session_dirs.append(session_dir)
+    try:
+        session_dirs = resolve_all(args.paths)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print(f"Resolved {len(session_dirs)} session(s):")
     for d in session_dirs:

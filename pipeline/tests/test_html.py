@@ -193,6 +193,35 @@ def test_build_html_embeds_downloadable_transcript(tmp_path: Path):
     assert filename_match.group(1) == "test-session-transcript.md"
 
 
+def test_build_html_embeds_downloadable_outline(tmp_path: Path):
+    """Same reasoning as the transcript embed, for outline.md: it also gets
+    deleted in the stated cleanup workflow, and pipeline/scripts/
+    build_action_items.py falls back to decoding this exact embed to
+    recover action items without outline.md on disk or a Bedrock/mlx_lm
+    call - so the original outline.md bytes must round-trip exactly."""
+    import base64
+
+    transcript_path = tmp_path / "transcript.md"
+    outline_path = tmp_path / "outline.md"
+    output_path = tmp_path / "out.html"
+    transcript_path.write_text(TRANSCRIPT_MD)
+    outline_path.write_text(OUTLINE_MD)
+
+    build_html(transcript_path, outline_path, output_path)
+    html = output_path.read_text()
+
+    assert 'id="downloadOutlineBtn"' in html
+
+    b64_match = re.search(r'OUTLINE_B64 = "([^"]*)"', html)
+    assert b64_match is not None
+    decoded = base64.b64decode(b64_match.group(1)).decode("utf-8")
+    assert decoded == OUTLINE_MD
+
+    filename_match = re.search(r'OUTLINE_FILENAME = "([^"]*)"', html)
+    assert filename_match is not None
+    assert filename_match.group(1) == "test-session-outline.md"
+
+
 def test_page_template_has_no_premature_script_close(tmp_path: Path):
     """Real bug: PAGE_TEMPLATE's JS block once had a comment containing the
     literal text "</script>" as an example of what the code guards against.
