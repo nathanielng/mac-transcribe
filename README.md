@@ -17,7 +17,10 @@ Two components, coupled only through the filesystem:
   self-contained HTML page with a collapsible outline sidebar. The original
   transcript is embedded in the page itself (base64) behind a "Download
   Transcript" button — the HTML survives if you later delete the mp3s and
-  `transcript.md`, since that's a normal cleanup workflow.
+  `transcript.md`, since that's a normal cleanup workflow. The outline's
+  Key Takeaways are split into Action Items / Next Steps, Information, and
+  Other — a category is omitted entirely (not left as an empty table) when
+  a recording has none of it, e.g. a seminar with no action items.
 
 Every recording becomes one folder:
 
