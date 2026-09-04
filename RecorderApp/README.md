@@ -122,10 +122,10 @@ without this there's no sign of life from a terminal. Look for the mic icon
   file off to an external player with no way to stop it from RecorderApp
   itself. One shared player: starting a second clip stops the first.
 - A 🔄 **Reprocess** button per completed session (`SessionStore.reprocess`),
-  distinct from the per-stage regenerate buttons on `StageChip` (which only
-  appear on a *failed* stage) — forces transcript+outline+title to re-run
-  from scratch even on a fully successful session, e.g. after switching
-  outline backend/model in Settings.
+  distinct from the per-stage action buttons on `StageChip` — forces
+  transcript+outline+title to re-run from scratch even on a fully
+  successful session, e.g. after switching outline backend/model in
+  Settings.
 - **Robust to deleted mp3s/transcript.md** — a normal cleanup workflow is
   keeping only the final HTML and deleting the raw audio/transcript.
   `Session.hasAudio`/`hasTranscript` gate the Transcript-regenerate,
@@ -136,6 +136,23 @@ without this there's no sign of life from a terminal. Look for the mic icon
   and screenshotting the real dropdown — the row still renders, with the
   right controls visibly disabled compared side-by-side against an
   untouched session's row.
+- **`StageChip`'s action button now shows for `.pending`, not just
+  `.failed`** — a stage that never got attempted at all (e.g. outline
+  stuck at "pending" forever because the transcript stage failed and
+  `process.py` returned before Stage 3 was ever reached) previously had no
+  way to manually trigger it, just an inert ⏳ with no action. Hidden for
+  `.running` so an actually-in-progress stage doesn't invite a confusing
+  duplicate click.
+- **`pipeline.log`** — `PipelineRunner` now captures the pipeline
+  subprocess's raw stdout/stderr to `<session-dir>/pipeline.log`
+  (overwritten each run), since `status.json`'s error field only covers
+  exceptions `process.py` itself catches — a hard crash before that (wrong
+  venv path, missing module) previously left zero trace anywhere. A 📄
+  button appears on the row when the file has content.
+- **Failed-stage errors are shown directly, not just on hover** —
+  `.help()` tooltips are unreliable inside `MenuBarExtra`'s transient
+  popover, so error text now also renders as selectable red text under the
+  row.
 
 ## Not yet implemented / known gaps
 
