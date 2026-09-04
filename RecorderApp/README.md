@@ -63,8 +63,9 @@ without this there's no sign of life from a terminal. Look for the mic icon
   pipeline-only config), with typed accessors for the keys it does know
 - `SettingsView` — a separate window (recordings folder picker; transcription
   model field; outline backend segmented control with a curated model picker
-  for each — Sonnet 5 / DeepSeek V3.2 / Qwen3-VL-235B for Bedrock, Qwen3.5
-  4B/9B/27B for local MLX — plus free-text "Custom…" for either; a toggle for
+  for each — GLM-5 (default) / Sonnet 5 / DeepSeek V3.2 / Qwen3-VL-235B for
+  Bedrock, Qwen3.5 4B/9B/Qwen3.8 27B for local MLX — plus free-text
+  "Custom…" for either; a toggle for
   auto title/rename; a toggle for sleep prevention). Opened via the menu's
   Settings… button, which calls `NSApp.activate(ignoringOtherApps: true)`
   before `openWindow` — accessory apps don't get their windows raised by
