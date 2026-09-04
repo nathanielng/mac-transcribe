@@ -137,6 +137,28 @@ layout a live recording produces, so it shows up in RecorderApp's recent
 list and supports the same regenerate-on-failure flow), then runs the full
 pipeline on it. `--title` is optional; defaults to the input filename.
 
+### Manual bulk scripts
+
+`pipeline/scripts/` has a few standalone reference tools (not covered by
+`pytest` — see each script's docstring for why, and cost/API-call caveats
+where relevant):
+
+- `regenerate_outlines.py` — re-run outline generation against
+  already-transcribed sessions without going through RecorderApp, e.g.
+  after changing `outline_backend`/`bedrock_model`. Accepts a session
+  folder, a `transcript.md` file, or a root folder (auto-discovers session
+  subfolders); `--dry-run` to preview, `--also-title` to also re-title.
+- `build_action_items.py` — aggregates every session's "Action Items / Next
+  Steps" (from the categorized Key Takeaways) into one `action_items.md` +
+  `.csv` (columns: date, session_title, action_item, detail, html_path,
+  status). Same session-selection as above, plus `--since`/`--until`
+  date-range filtering. Falls back to decoding the outline embedded in a
+  session's HTML when `outline.md` itself has been deleted — no API call
+  either way, since it's pure markdown parsing.
+- `check_bedrock_models.py` — smoke-checks each curated Bedrock model still
+  works and returns the expected response shape. Makes real (billable) API
+  calls, so it's not run automatically — see its docstring.
+
 ### Evaluating outline quality across backends/models
 
 `pipeline/eval/` generates outlines for a few synthetic transcripts (a
