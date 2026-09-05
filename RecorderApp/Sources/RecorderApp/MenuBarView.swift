@@ -20,6 +20,13 @@ struct MenuBarView: View {
     @State private var isExpanded = false
     private let compactMinHeight: CGFloat = 160
     private let compactMaxHeight: CGFloat = 1440
+    // Real bug: toggling only maxHeight (the ceiling) did nothing visible
+    // with just a couple of real sessions, since the actual content height
+    // was already well under even the *compact* cap — there was nothing
+    // for a higher ceiling to unlock. minHeight (the floor) is what
+    // actually forces the box to grow regardless of how much content is in
+    // it, so Expand now raises that too.
+    private let expandedMinHeight: CGFloat = 500
     private let expandedMaxHeight: CGFloat = 5760
 
     var body: some View {
@@ -72,7 +79,10 @@ struct MenuBarView: View {
                 // separately: refresh() was finding them correctly the
                 // whole time, logged every 3s — this was a pure layout bug,
                 // not a data bug).
-                .frame(minHeight: compactMinHeight, maxHeight: isExpanded ? expandedMaxHeight : compactMaxHeight)
+                .frame(
+                    minHeight: isExpanded ? expandedMinHeight : compactMinHeight,
+                    maxHeight: isExpanded ? expandedMaxHeight : compactMaxHeight
+                )
                 .animation(.easeInOut(duration: 0.2), value: isExpanded)
             }
             Divider()
@@ -224,8 +234,17 @@ private struct SessionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                // Long AI-generated titles previously wrapped to multiple
+                // lines, which grows every row's height permanently rather
+                // than just when you need to read the full title — with
+                // many recordings that adds up fast. Truncates with an
+                // ellipsis instead; the full title is still available via
+                // .help() on hover.
                 Text(session.title.replacingOccurrences(of: "-", with: " ").capitalized)
                     .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(session.title.replacingOccurrences(of: "-", with: " ").capitalized)
                 Spacer()
                 Text(session.date).font(.caption2).foregroundColor(.secondary)
             }
