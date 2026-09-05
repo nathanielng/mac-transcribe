@@ -7,6 +7,21 @@ struct MenuBarView: View {
     @ObservedObject var audioPlayer: AudioPlayerController
     @Environment(\.openWindow) private var openWindow
 
+    // Repeatedly doubling maxHeight (720 -> 1440 -> 2880 -> 5760) had no
+    // visible effect in testing — the popover's actual displayed height is
+    // capped by available screen space, not this value, so it was never
+    // the real lever. Reverted to a sane baseline (1/4 of the last value:
+    // 1440) and instead made minHeight the thing that actually grows the
+    // *default* view, plus an explicit expand toggle for "I want to see
+    // more right now" — a button rather than a drag handle, since a
+    // custom drag-resize gesture inside a transient, auto-sizing
+    // MenuBarExtra popover is a much less reliable thing to get right than
+    // a plain state toggle.
+    @State private var isExpanded = false
+    private let compactMinHeight: CGFloat = 160
+    private let compactMaxHeight: CGFloat = 1440
+    private let expandedMaxHeight: CGFloat = 5760
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             recordSection
@@ -19,6 +34,11 @@ struct MenuBarView: View {
             HStack {
                 Text("Recent Recordings").font(.headline)
                 Spacer()
+                Button(action: { isExpanded.toggle() }) {
+                    Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                }
+                .buttonStyle(.plain)
+                .help(isExpanded ? "Collapse" : "Expand")
                 Button(action: { sessionStore.refresh() }) {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -51,9 +71,9 @@ struct MenuBarView: View {
                 // when sessionStore.sessions genuinely has entries (verified
                 // separately: refresh() was finding them correctly the
                 // whole time, logged every 3s — this was a pure layout bug,
-                // not a data bug). maxHeight caps it so a long list doesn't
-                // take over the screen.
-                .frame(minHeight: 80, maxHeight: 5760)
+                // not a data bug).
+                .frame(minHeight: compactMinHeight, maxHeight: isExpanded ? expandedMaxHeight : compactMaxHeight)
+                .animation(.easeInOut(duration: 0.2), value: isExpanded)
             }
             Divider()
             HStack {
