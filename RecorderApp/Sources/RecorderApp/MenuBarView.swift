@@ -53,7 +53,7 @@ struct MenuBarView: View {
                 // whole time, logged every 3s — this was a pure layout bug,
                 // not a data bug). maxHeight caps it so a long list doesn't
                 // take over the screen.
-                .frame(minHeight: 80, maxHeight: 2880)
+                .frame(minHeight: 80, maxHeight: 5760)
             }
             Divider()
             HStack {
