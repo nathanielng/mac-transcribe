@@ -78,3 +78,27 @@ def test_render_transcript_md_shows_labels_for_two_sources():
     md = render_transcript_md("Test", "2026-08-15", ["mic", "system"], merged)
 
     assert "**[00:00:00] [Call]** Solo system audio." in md
+
+
+def test_render_transcript_md_shows_speaker_label_for_single_source_diarization():
+    """Amazon Transcribe can diarize a single mic recording of multiple
+    people (e.g. an in-person meeting) -- unlike plain mlx-whisper, that
+    speaker distinction is real information and should be shown even
+    though there's only one audio source."""
+    merged = [
+        {"start": 0.0, "source": "mic", "text": "Hello everyone.", "speaker": 1},
+        {"start": 5.0, "source": "mic", "text": "Hi there.", "speaker": 2},
+    ]
+
+    md = render_transcript_md("Test", "2026-08-15", ["mic"], merged)
+
+    assert "**[00:00:00] [Speaker 1]** Hello everyone." in md
+    assert "**[00:00:05] [Speaker 2]** Hi there." in md
+
+
+def test_render_transcript_md_combines_source_and_speaker_labels():
+    merged = [{"start": 0.0, "source": "system", "text": "Their point.", "speaker": 2}]
+
+    md = render_transcript_md("Test", "2026-08-15", ["mic", "system"], merged)
+
+    assert "**[00:00:00] [Call · Speaker 2]** Their point." in md

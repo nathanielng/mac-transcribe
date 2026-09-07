@@ -10,6 +10,17 @@ DEFAULTS = {
     # Any mlx-whisper-compatible model repo works here as a drop-in swap —
     # no code change needed, just edit this value.
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
+    # "mlx_whisper" (fully local, default) or "amazon_transcribe" (adds
+    # speaker diarization -- Speaker 1/2/3/... -- for recordings with
+    # multiple people on one audio source, e.g. an in-person meeting on a
+    # single mic; mlx-whisper has no way to do this at all). The
+    # amazon_transcribe path requires transcribe_s3_bucket to be set, since
+    # Transcribe's batch API needs S3 for both input audio and output JSON.
+    "transcribe_backend": "mlx_whisper",
+    "transcribe_region": "us-east-1",
+    "transcribe_profile": "default",
+    "transcribe_s3_bucket": "",
+    "transcribe_max_speakers": 10,
     # "bedrock" (GLM-5 / Claude Sonnet 5 / other Bedrock-hosted models) or
     # "mlx_lm" (fully local, via the mlx-lm package). Both outline.py and
     # title.py dispatch on this — see llm_backend.py.

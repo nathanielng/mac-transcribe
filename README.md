@@ -101,8 +101,22 @@ Outline generation (Stage 3) has two backends, selected by `outline_backend`:
   the same mechanism mlx-whisper already uses for transcription), cached
   under `~/.cache/huggingface/hub/` — no separate pull/download step.
 
-Transcription (Stage 2) is local-only via `mlx-whisper`; `whisper_model`
-accepts any mlx-whisper-compatible model repo as a drop-in swap.
+Transcription (Stage 2) has two backends, selected by `transcribe_backend`:
+
+- **`mlx_whisper`** (default) — fully local via `mlx-whisper`;
+  `whisper_model` accepts any mlx-whisper-compatible model repo as a
+  drop-in swap. No speaker diarization: every segment from a given source
+  (mic/system) gets that source's fixed label, since Whisper has no way to
+  tell multiple speakers on the same mic apart.
+- **`amazon_transcribe`** — Amazon Transcribe batch jobs, with real
+  speaker diarization (`Speaker 1`, `Speaker 2`, ...) for recordings with
+  multiple people on one audio source, e.g. an in-person meeting captured
+  on a single mic. Requires `transcribe_s3_bucket` to be set (Transcribe's
+  batch API needs S3 for both input audio and output JSON — the uploaded
+  audio copy is deleted after the job completes; the small result JSON is
+  left in the bucket). `transcribe_max_speakers` caps how many distinct
+  speakers Transcribe will try to identify (default 10). Makes real,
+  billable AWS API calls.
 
 Config lives at `~/.config/mac-transcribe/config.toml` (created with
 defaults on first run):
@@ -110,6 +124,11 @@ defaults on first run):
 ```toml
 recordings_dir = "~/Recordings/mac-transcribe"
 whisper_model = "mlx-community/whisper-large-v3-turbo"
+transcribe_backend = "mlx_whisper"           # or "amazon_transcribe"
+transcribe_region = "us-east-1"
+transcribe_profile = "default"
+transcribe_s3_bucket = ""                    # required for amazon_transcribe
+transcribe_max_speakers = 10
 outline_backend = "bedrock"                  # or "mlx_lm"
 bedrock_model = "zai.glm-5"
 bedrock_region = "us-east-1"

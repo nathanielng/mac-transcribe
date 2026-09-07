@@ -44,10 +44,15 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
     # transcript stage doesn't need to be redone, same fallback logic
     # Session.swift already uses for its status pill (transcriptState).
     if "transcript" in force or (not status.stage_ok(session_dir, "transcript") and not transcript_path.exists()):
-        print(f"[transcript] Transcribing with mlx-whisper (model={cfg['whisper_model']})...", flush=True)
+        transcribe_backend_desc = (
+            f"mlx-whisper (model={cfg['whisper_model']})"
+            if cfg.get("transcribe_backend", "mlx_whisper") == "mlx_whisper"
+            else "Amazon Transcribe"
+        )
+        print(f"[transcript] Transcribing with {transcribe_backend_desc}...", flush=True)
         status.set_stage(session_dir, "transcript", "running")
         try:
-            run_transcribe(session_dir, title, date_str, cfg["whisper_model"])
+            run_transcribe(session_dir, title, date_str, cfg)
             status.set_stage(session_dir, "transcript", "ok")
             print("[transcript] Done.", flush=True)
         except Exception as e:
