@@ -13,6 +13,19 @@ enum OutlineBackend: String, CaseIterable, Identifiable {
     }
 }
 
+enum TranscribeBackend: String, CaseIterable, Identifiable {
+    case mlxWhisper = "mlx_whisper"
+    case amazonTranscribe = "amazon_transcribe"
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .mlxWhisper: return "Local (MLX-Whisper)"
+        case .amazonTranscribe: return "Amazon Transcribe"
+        }
+    }
+}
+
 /// A curated Bedrock model to offer in the picker, alongside "Custom" for
 /// anything else the pipeline's free-text bedrock_model config accepts.
 struct BedrockModelOption: Identifiable, Hashable {
@@ -62,6 +75,11 @@ struct AppConfig {
     private static let defaults: [String: String] = [
         "recordings_dir": defaultRecordingsDir.path,
         "whisper_model": "mlx-community/whisper-large-v3-turbo",
+        "transcribe_backend": "mlx_whisper",
+        "transcribe_region": "us-east-1",
+        "transcribe_profile": "default",
+        "transcribe_s3_bucket": "",
+        "transcribe_max_speakers": "10",
         "outline_backend": "bedrock",
         "bedrock_model": "zai.glm-5",
         "bedrock_region": "us-east-1",
@@ -98,7 +116,9 @@ struct AppConfig {
         // config additions this Swift copy hasn't been updated for yet).
         var lines: [String] = []
         var written = Set<String>()
-        for key in ["recordings_dir", "whisper_model", "outline_backend", "bedrock_model",
+        for key in ["recordings_dir", "whisper_model", "transcribe_backend", "transcribe_region",
+                    "transcribe_profile", "transcribe_s3_bucket", "transcribe_max_speakers",
+                    "outline_backend", "bedrock_model",
                     "bedrock_region", "bedrock_profile", "mlx_outline_model", "auto_rename_with_ai_title",
                     "prevent_sleep_while_recording"] {
             lines.append(tomlLine(key: key, value: raw[key] ?? Self.defaults[key] ?? ""))
@@ -112,7 +132,11 @@ struct AppConfig {
     }
 
     private func tomlLine(key: String, value: String) -> String {
-        if value == "true" || value == "false" {
+        // transcribe_max_speakers must round-trip as a TOML integer, not a
+        // quoted string -- Python's config.py has it typed as int (10), and
+        // boto3's MaxSpeakerLabels parameter requires an actual int, not a
+        // numeric string, when Amazon Transcribe reads this back.
+        if value == "true" || value == "false" || Int(value) != nil {
             return "\(key) = \(value)"
         }
         return "\(key) = \"\(value)\""
@@ -142,6 +166,31 @@ struct AppConfig {
     var whisperModel: String {
         get { raw["whisper_model"] ?? Self.defaults["whisper_model"]! }
         set { raw["whisper_model"] = newValue }
+    }
+
+    var transcribeBackend: TranscribeBackend {
+        get { TranscribeBackend(rawValue: raw["transcribe_backend"] ?? "") ?? .mlxWhisper }
+        set { raw["transcribe_backend"] = newValue.rawValue }
+    }
+
+    var transcribeRegion: String {
+        get { raw["transcribe_region"] ?? Self.defaults["transcribe_region"]! }
+        set { raw["transcribe_region"] = newValue }
+    }
+
+    var transcribeProfile: String {
+        get { raw["transcribe_profile"] ?? Self.defaults["transcribe_profile"]! }
+        set { raw["transcribe_profile"] = newValue }
+    }
+
+    var transcribeS3Bucket: String {
+        get { raw["transcribe_s3_bucket"] ?? "" }
+        set { raw["transcribe_s3_bucket"] = newValue }
+    }
+
+    var transcribeMaxSpeakers: Int {
+        get { Int(raw["transcribe_max_speakers"] ?? "") ?? 10 }
+        set { raw["transcribe_max_speakers"] = String(newValue) }
     }
 
     var outlineBackend: OutlineBackend {
@@ -177,6 +226,9 @@ struct AppConfig {
     }
 
     var transcriptionModelSummary: String {
-        "\(whisperModel) (local)"
+        switch transcribeBackend {
+        case .mlxWhisper: return "\(whisperModel) (local)"
+        case .amazonTranscribe: return "Amazon Transcribe (cloud, speaker diarization)"
+        }
     }
 }
