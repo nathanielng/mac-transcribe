@@ -28,11 +28,27 @@ def generate_title_slug(transcript_md: str, cfg: dict) -> str:
     return slug or "recording"
 
 
+# Words kept fully uppercase by humanize_slug instead of being title-cased,
+# since the title-generation prompt forces the whole slug to lowercase and
+# str.title() has no way to know "aws"/"llm" were ever meant as acronyms.
+# Mirrors MenuBarView.swift's SessionRow title display, which has the same
+# problem for the same reason.
+KNOWN_ABBREVIATIONS = {
+    "aws", "llm", "ai", "api", "ui", "ux", "cli", "sdk", "ml", "nlp", "gpt",
+    "sql", "html", "css", "json", "yaml", "xml", "url", "http", "https",
+    "id", "ide", "os", "cpu", "gpu", "ram", "jwt", "rest", "ci", "cd",
+    "vpn", "dns", "ip", "tcp", "udp", "ceo", "cfo", "cto", "pr", "qa",
+}
+
+
 def humanize_slug(slug: str) -> str:
-    """"nea-aws-strategy-planning-meeting" -> "Nea Aws Strategy Planning Meeting" —
-    matches RecorderApp's SessionRow title display (replacingOccurrences + .capitalized)
-    so the HTML title/header matches what's shown in the app's recent-recordings list."""
-    return slug.replace("-", " ").title()
+    """"nea-aws-strategy-planning-meeting" -> "Nea AWS Strategy Planning Meeting" —
+    matches RecorderApp's SessionRow title display so the HTML title/header
+    matches what's shown in the app's recent-recordings list. Known
+    abbreviations (see KNOWN_ABBREVIATIONS) are kept fully uppercase instead
+    of str.title()'s default "Aws"/"Llm"."""
+    words = slug.replace("-", " ").split(" ")
+    return " ".join(w.upper() if w.lower() in KNOWN_ABBREVIATIONS else w.capitalize() for w in words)
 
 
 def update_transcript_title(session_dir: Path, new_title: str) -> None:

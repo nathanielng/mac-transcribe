@@ -34,7 +34,16 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
     date_str = date_cls.today().isoformat()
 
     # --- Stage 2: transcript ---
-    if "transcript" in force or not status.stage_ok(session_dir, "transcript"):
+    transcript_path = session_dir / "transcript.md"
+    # "--force-outline" (the menu bar app's Regenerate-outline button) never
+    # implies "--force-transcript". If status.json doesn't explicitly say
+    # transcript is ok (e.g. it predates status.json, or was reset), the old
+    # check here re-ran mlx-whisper regardless, which requires mic.mp3/
+    # system.mp3 — files that may well have been deleted long after
+    # transcript.md was kept. A transcript.md already on disk is proof the
+    # transcript stage doesn't need to be redone, same fallback logic
+    # Session.swift already uses for its status pill (transcriptState).
+    if "transcript" in force or (not status.stage_ok(session_dir, "transcript") and not transcript_path.exists()):
         print(f"[transcript] Transcribing with mlx-whisper (model={cfg['whisper_model']})...", flush=True)
         status.set_stage(session_dir, "transcript", "running")
         try:
@@ -46,6 +55,7 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
             print(f"[transcript] FAILED: {e}", flush=True)
             return session_dir  # nothing downstream can run without a transcript
     else:
+        status.set_stage(session_dir, "transcript", "ok")
         print("[transcript] Already ok, skipping.", flush=True)
 
     transcript_md = (session_dir / "transcript.md").read_text()

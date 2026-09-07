@@ -13,8 +13,12 @@ def make_session(tmp_path: Path, name: str) -> Path:
 
 
 def test_humanize_slug():
-    assert humanize_slug("nea-aws-strategy-planning-meeting") == "Nea Aws Strategy Planning Meeting"
+    assert humanize_slug("nea-aws-strategy-planning-meeting") == "Nea AWS Strategy Planning Meeting"
     assert humanize_slug("recording") == "Recording"
+
+
+def test_humanize_slug_keeps_known_abbreviations_uppercase():
+    assert humanize_slug("llm-api-design-review") == "LLM API Design Review"
 
 
 def test_update_transcript_title_replaces_only_the_header_line(tmp_path: Path):

@@ -240,11 +240,11 @@ private struct SessionRow: View {
                 // many recordings that adds up fast. Truncates with an
                 // ellipsis instead; the full title is still available via
                 // .help() on hover.
-                Text(session.title.replacingOccurrences(of: "-", with: " ").capitalized)
+                Text(session.humanizedTitle)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .help(session.title.replacingOccurrences(of: "-", with: " ").capitalized)
+                    .help(session.humanizedTitle)
                 Spacer()
                 Text(session.date).font(.caption2).foregroundColor(.secondary)
             }

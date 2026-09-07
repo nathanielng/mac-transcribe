@@ -64,6 +64,26 @@ struct Session: Identifiable {
 
     var titleState: StageState { StageState(status?.stages["title_rename"]) }
 
+    // Mirrors pipeline/mac_transcribe/title.py's KNOWN_ABBREVIATIONS/
+    // humanize_slug — the title-generation prompt forces the whole slug to
+    // lowercase, so plain .capitalized turns "aws"/"llm" into "Aws"/"Llm"
+    // with no way to tell they were ever meant as acronyms. Keep this set
+    // in sync with the Python side.
+    static let knownAbbreviations: Set<String> = [
+        "aws", "llm", "ai", "api", "ui", "ux", "cli", "sdk", "ml", "nlp", "gpt",
+        "sql", "html", "css", "json", "yaml", "xml", "url", "http", "https",
+        "id", "ide", "os", "cpu", "gpu", "ram", "jwt", "rest", "ci", "cd",
+        "vpn", "dns", "ip", "tcp", "udp", "ceo", "cfo", "cto", "pr", "qa",
+    ]
+
+    /// "nea-aws-strategy-planning-meeting" -> "Nea AWS Strategy Planning Meeting"
+    var humanizedTitle: String {
+        title.split(separator: "-").map { word -> String in
+            let lower = word.lowercased()
+            return Session.knownAbbreviations.contains(lower) ? lower.uppercased() : lower.capitalized
+        }.joined(separator: " ")
+    }
+
     var htmlURL: URL? {
         let url = directory.appendingPathComponent("\(id).html")
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
