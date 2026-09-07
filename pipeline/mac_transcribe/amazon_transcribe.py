@@ -6,8 +6,9 @@ config's transcribe_backend = "amazon_transcribe" (default remains
 Batch (not streaming) Transcribe jobs require the source audio to sit in
 S3 and write their JSON result back to S3 too, so this uploads the local
 mp3, starts a job, polls for completion, downloads + parses the result,
-then deletes the uploaded audio copy (the small result JSON is left in
-the bucket in case you want to re-inspect a job later).
+then deletes the uploaded audio, the result JSON, and the job's own
+registration in Transcribe's job list -- a run leaves nothing behind in
+your AWS account beyond the (billable) API calls themselves.
 """
 
 import json
@@ -70,7 +71,18 @@ def transcribe_file_aws(path: Path, cfg: dict) -> list[dict]:
             raise
         raise
     finally:
+        # Runs on both success and failure so a run never leaves stray
+        # artifacts behind: the uploaded audio copy, the result JSON (once
+        # we've read it), and the job registration itself all get cleaned
+        # up. delete_transcription_job() only deletes the job's metadata
+        # from Transcribe's job list -- it has no effect on S3 and doesn't
+        # touch the audio/result objects, so all three deletes are needed.
         s3_client.delete_object(Bucket=bucket, Key=audio_key)
+        s3_client.delete_object(Bucket=bucket, Key=result_key)
+        try:
+            transcribe_client.delete_transcription_job(TranscriptionJobName=job_name)
+        except transcribe_client.exceptions.BadRequestException:
+            pass  # job never got far enough to exist server-side (e.g. start_transcription_job itself failed)
 
 
 def _wait_for_job(client, job_name: str) -> dict:

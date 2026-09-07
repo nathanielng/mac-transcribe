@@ -113,8 +113,9 @@ Transcription (Stage 2) has two backends, selected by `transcribe_backend`:
   multiple people on one audio source, e.g. an in-person meeting captured
   on a single mic. Requires `transcribe_s3_bucket` to be set (Transcribe's
   batch API needs S3 for both input audio and output JSON — the uploaded
-  audio copy is deleted after the job completes; the small result JSON is
-  left in the bucket). `transcribe_max_speakers` caps how many distinct
+  audio, the result JSON, and the job's entry in Transcribe's job list are
+  all deleted once the job completes, so nothing is left behind in your
+  AWS account). `transcribe_max_speakers` caps how many distinct
   speakers Transcribe will try to identify (default 10). Makes real,
   billable AWS API calls.
 
