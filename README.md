@@ -119,6 +119,34 @@ Transcription (Stage 2) has two backends, selected by `transcribe_backend`:
   speakers Transcribe will try to identify (default 10). Makes real,
   billable AWS API calls.
 
+  **IAM permissions required** (beyond whatever `transcribe_profile`
+  already has for Bedrock, if any): the cleanup step after every job
+  needs delete permissions too, not just the upload/start/poll calls —
+  without them the transcription itself still succeeds, but every run
+  will fail to clean up its own audio/result objects and job entry.
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+        "Resource": "arn:aws:s3:::YOUR_BUCKET/mac-transcribe/*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "transcribe:StartTranscriptionJob",
+          "transcribe:GetTranscriptionJob",
+          "transcribe:DeleteTranscriptionJob"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }
+  ```
+
 Config lives at `~/.config/mac-transcribe/config.toml` (created with
 defaults on first run):
 
