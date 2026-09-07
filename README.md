@@ -50,6 +50,17 @@ use it — runs concurrently with outline generation, gated by
 title *inside* `transcript.md` (not just the filenames), so the generated
 HTML page's `<title>`/`<h1>` reflect the new name too.
 
+Before transcription, trailing silence (e.g. forgetting to hit Stop
+Recording) is trimmed off `mic.mp3`/`system.mp3` — pure signal-level
+detection (ffmpeg's `silencedetect`), so it works the same regardless of
+`transcribe_backend` and needs no transcript. After transcription, if
+there's a gap of `split_gap_minutes` (default 5) or more between two
+consecutive transcript lines, the session is split into separate session
+folders instead of treating it as one recording — usually means Stop
+Recording was forgotten and a second, unrelated conversation ended up in
+the same file. Both are on by default; see `trim_trailing_silence` /
+`auto_split_on_gaps` in the config below to disable either.
+
 See [`plan.md`](plan.md) for the full design writeup and the reasoning behind
 these choices (why two languages, why per-session folders, why not depend on
 Claude Code/Kiro skills at runtime, etc).
@@ -147,6 +158,26 @@ Transcription (Stage 2) has two backends, selected by `transcribe_backend`:
   }
   ```
 
+Two cleanup stages run around transcription, both on by default:
+
+- **`trim_trailing_silence`** — before transcribing, trims trailing
+  silence off `mic.mp3`/`system.mp3` (ffmpeg `silencedetect`, no
+  transcript needed) if it's at least `trailing_silence_trim_threshold_seconds`
+  (default 120s = 2 min) long — for when Stop Recording gets forgotten and
+  a session ends with a long stretch of dead air. Purely signal-level, so
+  it works the same for either `transcribe_backend`.
+- **`auto_split_on_gaps`** — after transcribing, if `transcript.md` has a
+  gap of `split_gap_minutes` (default 5) or more between two consecutive
+  lines, splits the session into separate session folders (audio and
+  transcript both sliced to match, via ffmpeg stream copy — no
+  re-encoding) instead of treating it as one recording. Handles the case
+  where Stop Recording was forgotten and a second, unrelated conversation
+  got captured in the same file later — each part gets its own outline/
+  title/HTML, same as any other session. 5 minutes was chosen because a
+  gap that long is already a near-certain signal of two separate events
+  regardless of what's actually said (a fixed threshold avoids needing an
+  extra LLM call just to judge "are these topically related").
+
 Config lives at `~/.config/mac-transcribe/config.toml` (created with
 defaults on first run):
 
@@ -158,6 +189,10 @@ transcribe_region = "us-east-1"
 transcribe_profile = "default"
 transcribe_s3_bucket = ""                    # required for amazon_transcribe
 transcribe_max_speakers = 10
+trim_trailing_silence = true
+trailing_silence_trim_threshold_seconds = 120
+auto_split_on_gaps = true
+split_gap_minutes = 5
 outline_backend = "bedrock"                  # or "mlx_lm"
 bedrock_model = "zai.glm-5"
 bedrock_region = "us-east-1"

@@ -15,6 +15,8 @@ from . import status
 from .config import load_config
 from .llm_backend import OutlineAuthError
 from .outline import run as run_outline
+from .session_split import split_session
+from .silence import trim_trailing_silence
 from .title import generate_title_slug, rename_session
 from .transcribe import run as run_transcribe
 from .html import build_html
@@ -27,10 +29,28 @@ def guess_title(session_dir: Path) -> str:
     return "-".join(parts[3:]) if len(parts) > 3 else name
 
 
+def _trim_trailing_silence(session_dir: Path, cfg: dict) -> None:
+    if not cfg.get("trim_trailing_silence", True):
+        return
+    threshold = cfg.get("trailing_silence_trim_threshold_seconds", 120)
+    for source in ("mic", "system"):
+        audio_path = session_dir / f"{source}.mp3"
+        if not audio_path.exists():
+            continue
+        try:
+            trimmed = trim_trailing_silence(audio_path, threshold)
+            if trimmed:
+                print(f"[trim] Removed {trimmed:.0f}s of trailing silence from {source}.mp3", flush=True)
+        except Exception as e:
+            # Forgetting to stop a recording is common and this is a
+            # disk-space nicety, not a correctness requirement -- a broken
+            # ffmpeg/ffprobe install shouldn't block transcription over it.
+            print(f"[trim] Skipped ({source}.mp3): {e}", flush=True)
+
+
 def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
     force = force or set()
     cfg = load_config()
-    title = guess_title(session_dir)
     date_str = date_cls.today().isoformat()
 
     # --- Stage 2: transcript ---
@@ -44,6 +64,7 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
     # transcript stage doesn't need to be redone, same fallback logic
     # Session.swift already uses for its status pill (transcriptState).
     if "transcript" in force or (not status.stage_ok(session_dir, "transcript") and not transcript_path.exists()):
+        _trim_trailing_silence(session_dir, cfg)
         transcribe_backend_desc = (
             f"mlx-whisper (model={cfg['whisper_model']})"
             if cfg.get("transcribe_backend", "mlx_whisper") == "mlx_whisper"
@@ -52,7 +73,7 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
         print(f"[transcript] Transcribing with {transcribe_backend_desc}...", flush=True)
         status.set_stage(session_dir, "transcript", "running")
         try:
-            run_transcribe(session_dir, title, date_str, cfg)
+            run_transcribe(session_dir, guess_title(session_dir), date_str, cfg)
             status.set_stage(session_dir, "transcript", "ok")
             print("[transcript] Done.", flush=True)
         except Exception as e:
@@ -63,6 +84,23 @@ def process_session(session_dir: Path, force: set[str] | None = None) -> Path:
         status.set_stage(session_dir, "transcript", "ok")
         print("[transcript] Already ok, skipping.", flush=True)
 
+    # A long silent gap followed by more conversation usually means Stop
+    # Recording got forgotten and a second, unrelated conversation ended up
+    # in the same file -- split into separate sessions rather than silently
+    # merging two unrelated outlines into one. Each part re-enters the rest
+    # of this function on its own, so it gets its own outline/title/HTML.
+    part_dirs = split_session(session_dir, cfg)
+    if len(part_dirs) > 1:
+        print(f"[split] Long gap detected -- split into {len(part_dirs)} sessions: "
+              f"{', '.join(d.name for d in part_dirs)}", flush=True)
+        results = [_process_outline_title_html(part_dir, cfg, force, date_str) for part_dir in part_dirs]
+        return results[0]
+
+    return _process_outline_title_html(part_dirs[0], cfg, force, date_str)
+
+
+def _process_outline_title_html(session_dir: Path, cfg: dict, force: set[str], date_str: str) -> Path:
+    title = guess_title(session_dir)
     transcript_md = (session_dir / "transcript.md").read_text()
 
     # --- Stage 3: outline + optional AI title/rename, concurrently ---

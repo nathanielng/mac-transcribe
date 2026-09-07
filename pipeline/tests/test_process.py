@@ -36,3 +36,31 @@ def test_force_outline_does_not_require_audio_when_transcript_exists(tmp_path: P
     process.process_session(session_dir, force={"outline"})
 
     assert status.stage_ok(session_dir, "transcript") is True
+
+
+def test_process_session_splits_and_runs_outline_on_each_part(tmp_path: Path, monkeypatch):
+    """A transcript with a qualifying gap should result in two session
+    folders, each independently getting an outline (and HTML, since outline
+    "succeeds" via the stub) -- not one outline covering both
+    conversations."""
+    session_dir = tmp_path / "2026-01-01-two-conversations"
+    session_dir.mkdir()
+    (session_dir / "transcript.md").write_text(
+        "# Test\n\n## Transcript\n\n"
+        "**[00:00:00]** First conversation.\n\n"
+        "**[00:20:00]** Second conversation, much later.\n\n"
+    )
+    status.set_stage(session_dir, "transcript", "ok")
+
+    _stub_cfg(monkeypatch)
+    outline_calls = []
+    monkeypatch.setattr(process, "run_transcribe", lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not re-transcribe")))
+    monkeypatch.setattr(process, "run_outline", lambda session_dir, title, cfg: outline_calls.append(session_dir))
+    monkeypatch.setattr(process, "build_html", lambda *a, **k: None)
+
+    process.process_session(session_dir, force=set())
+
+    assert len(outline_calls) == 2
+    assert not session_dir.exists()  # replaced by the two "-part1"/"-part2" dirs
+    for part_dir in outline_calls:
+        assert status.stage_ok(part_dir, "outline") is True

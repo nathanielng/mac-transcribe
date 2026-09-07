@@ -11,3 +11,11 @@ def ffmpeg_path() -> str:
             return candidate
     found = shutil.which("ffmpeg")
     return found or "ffmpeg"
+
+
+def ffprobe_path() -> str:
+    for candidate in ("/opt/homebrew/bin/ffprobe", "/usr/local/bin/ffprobe"):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    found = shutil.which("ffprobe")
+    return found or "ffprobe"

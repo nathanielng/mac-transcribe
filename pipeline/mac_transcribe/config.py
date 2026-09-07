@@ -21,6 +21,17 @@ DEFAULTS = {
     "transcribe_profile": "default",
     "transcribe_s3_bucket": "",
     "transcribe_max_speakers": 10,
+    # Trims trailing silence (e.g. forgetting to hit Stop Recording) off
+    # mic.mp3/system.mp3 before transcription -- saves disk and skips
+    # wasted transcription time on dead air. See silence.py.
+    "trim_trailing_silence": True,
+    "trailing_silence_trim_threshold_seconds": 120,
+    # If transcript.md has a gap this long (or longer) between two
+    # consecutive lines, the session is split into separate sessions --
+    # usually means Stop Recording was forgotten and a second, unrelated
+    # conversation ended up in the same file. See session_split.py.
+    "auto_split_on_gaps": True,
+    "split_gap_minutes": 5,
     # "bedrock" (GLM-5 / Claude Sonnet 5 / other Bedrock-hosted models) or
     # "mlx_lm" (fully local, via the mlx-lm package). Both outline.py and
     # title.py dispatch on this — see llm_backend.py.
