@@ -48,6 +48,7 @@ struct MLXModelOption: Identifiable, Hashable {
         MLXModelOption(id: "mlx-community/Qwen3.5-4B-MLX-4bit", label: "Qwen3.5 4B (fast, ~4GB)"),
         MLXModelOption(id: "mlx-community/Qwen3.5-9B-MLX-4bit", label: "Qwen3.5 9B (balanced, ~6GB)"),
         MLXModelOption(id: "mlx-community/Qwen3.8-27B-4bit", label: "Qwen3.8 27B (highest quality, ~16GB)"),
+        MLXModelOption(id: "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit", label: "Ternary Bonsai 2 27B (2-bit, compact)"),
     ]
 }
 

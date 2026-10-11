@@ -51,6 +51,7 @@ DEFAULTS = {
     # Used when outline_backend = "mlx_lm". Any mlx-lm-compatible instruct
     # model works — this default is a good speed/quality balance; swap in
     # e.g. "mlx-community/Qwen3.5-9B-MLX-4bit" or "mlx-community/Qwen3.8-27B-4bit"
+    # or "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit" (27B at 2-bit, smaller download)
     # (~16GB download) for higher quality at the cost of more RAM and
     # slower generation, entirely via config.
     "mlx_outline_model": "mlx-community/Qwen3.5-4B-MLX-4bit",
