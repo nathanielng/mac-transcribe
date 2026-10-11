@@ -35,6 +35,11 @@ final class RecordingController: ObservableObject {
 
     var recordingsDir: URL { AppConfig.load().recordingsDir }
 
+    /// Seconds since start() — used to decide whether Cancel needs a
+    /// confirmation box (a recording this short has essentially nothing
+    /// in it worth protecting with a dialog).
+    var elapsed: TimeInterval { startedAt.map { Date().timeIntervalSince($0) } ?? 0 }
+
     init(sessionStore: SessionStore) {
         self.sessionStore = sessionStore
     }
@@ -129,6 +134,35 @@ final class RecordingController: ObservableObject {
         Task {
             await systemRecorder.stop()
             await finalize(sessionDir: dir)
+        }
+    }
+
+    /// Discards the current recording entirely: no encoding, no pipeline
+    /// run, and whatever's been written so far (wav/mp3 files, the session
+    /// folder itself) is deleted. For a take that's junk from the start
+    /// (e.g. noise before the real conversation begins) where re-recording
+    /// cleanly is simpler than trimming/editing the file afterward.
+    func cancel() {
+        guard isRecording, let dir = sessionDir else {
+            NSLog("mac-transcribe: cancel() called but isRecording=\(isRecording) sessionDir=\(String(describing: sessionDir))")
+            return
+        }
+        isRecording = false
+        isPaused = false
+        micLevel = 0
+        systemLevel = 0
+        sleepAssertion.disable()
+        NSLog("mac-transcribe: cancel() -> discarding session at \(dir.path)")
+
+        micRecorder.stop()
+
+        Task {
+            await systemRecorder.stop()
+            try? FileManager.default.removeItem(at: dir)
+            await MainActor.run {
+                self.sessionDir = nil
+                NSLog("mac-transcribe: cancel() complete, \(dir.path) removed")
+            }
         }
     }
 

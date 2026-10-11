@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import AppKit
 
 struct MenuBarView: View {
     @ObservedObject var controller: RecordingController
@@ -149,6 +150,11 @@ struct MenuBarView: View {
                         controller.isPaused ? controller.resume() : controller.pause()
                     }
                     .buttonStyle(.bordered)
+
+                    Button("Cancel…") { confirmCancel() }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                        .help("Discard this recording — no transcript or outline will be generated")
                 }
             }
 
@@ -177,6 +183,30 @@ struct MenuBarView: View {
                         .foregroundColor(.secondary)
                 }
             }
+        }
+    }
+
+    /// Deleting an in-progress recording is irreversible (no transcript/
+    /// outline was ever generated to fall back on), and this button sits
+    /// right next to Pause/Resume in a dropdown that's easy to click
+    /// through quickly — confirm before actually discarding anything.
+    /// Skipped for a recording that's barely started (≤5s): there's
+    /// essentially nothing to lose, and a confirmation box there is just
+    /// friction, not a safety net.
+    private func confirmCancel() {
+        if controller.elapsed <= 5 {
+            controller.cancel()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Discard this recording?"
+        alert.informativeText = "This deletes the audio recorded so far. No transcript or outline will be generated. This can't be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Discard Recording")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            controller.cancel()
         }
     }
 
