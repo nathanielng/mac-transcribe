@@ -108,6 +108,50 @@ final class LibraryModel: ObservableObject {
         cache.save()
     }
 
+    enum RenameError: LocalizedError {
+        case destinationExists(String)
+        var errorDescription: String? {
+            switch self {
+            case .destinationExists(let name): return "\"\(name)\" already exists"
+            }
+        }
+    }
+
+    /// Applies a user-approved title: renames the audio file on disk
+    /// (keeping its yyyymmdd hh-mm-ss prefix — see Recording.renamedURL),
+    /// moves its transcript sidecar along with it, and carries the
+    /// waveform cache entry over under the new name so the rename alone
+    /// doesn't force a re-decode.
+    func rename(_ recording: Recording, to newURL: URL) throws {
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: newURL.path) else {
+            throw RenameError.destinationExists(newURL.lastPathComponent)
+        }
+        try fm.moveItem(at: recording.url, to: newURL)
+
+        let oldSidecar = recording.transcriptSidecarURL
+        if fm.fileExists(atPath: oldSidecar.path) {
+            let newSidecar = newURL.deletingLastPathComponent()
+                .appendingPathComponent(newURL.lastPathComponent + ".transcript.txt")
+            try? fm.moveItem(at: oldSidecar, to: newSidecar)
+        }
+
+        if let folder {
+            var cache = WaveformCache(folder: folder)
+            cache.rename(from: recording.name, to: newURL.lastPathComponent)
+            cache.save()
+        }
+
+        if let idx = recordings.firstIndex(where: { $0.url == recording.url }) {
+            recordings[idx] = Recording(
+                url: newURL, size: recording.size, mtime: recording.mtime,
+                duration: recording.duration, sampleRate: recording.sampleRate,
+                channels: recording.channels, peaks: recording.peaks,
+                peakDB: recording.peakDB, error: recording.error
+            )
+        }
+    }
+
     var filteredSorted: [Recording] {
         let f = filter.lowercased()
         let filtered = f.isEmpty ? recordings : recordings.filter { $0.name.lowercased().contains(f) }

@@ -53,6 +53,16 @@ struct WaveformCache {
         entries = entries.filter { names.contains($0.key) }
     }
 
+    /// Carries an entry over to a new filename — used when approving a
+    /// proposed title renames the file on disk, so that rename alone
+    /// doesn't force a full re-decode of (potentially) a multi-hour file
+    /// just because its name changed.
+    mutating func rename(from oldName: String, to newName: String) {
+        guard let entry = entries[oldName] else { return }
+        entries[newName] = entry
+        entries.removeValue(forKey: oldName)
+    }
+
     func save() {
         guard let data = try? JSONEncoder().encode(entries) else { return }
         try? data.write(to: fileURL)

@@ -227,6 +227,25 @@ layout a live recording produces, so it shows up in RecorderApp's recent
 list and supports the same regenerate-on-failure flow), then runs the full
 pipeline on it. `--title` is optional; defaults to the input filename.
 
+For a lighter touch — just a transcript and a proposed title, with no
+session folder, outline, or HTML, for a flat file left in `recordings_dir`
+as-is (e.g. an old personal recording archive, not a RecorderApp session):
+
+```bash
+cd pipeline
+python3 -m mac_transcribe.describe_recording /path/to/file.mp3 [--force]
+```
+
+Transcribes locally via mlx-whisper (writing/reusing a
+`<name>.transcript.txt` sidecar next to the file; `--force` re-transcribes),
+proposes a title via whatever `outline_backend`/model is already
+configured (local `mlx_lm` by default), and prints one JSON line:
+`{"transcript_path", "transcript", "proposed_title", "error"}`. This is
+what `RecordingsVisualizer`'s transcribe/approve-title UI calls — see
+[`RecordingsVisualizer/README.md`](RecordingsVisualizer/README.md) for the
+human-in-the-loop approval flow built on top of it (nothing renamed until
+a proposed title is explicitly approved).
+
 ### Manual bulk scripts
 
 `pipeline/scripts/` has a few standalone reference tools (not covered by

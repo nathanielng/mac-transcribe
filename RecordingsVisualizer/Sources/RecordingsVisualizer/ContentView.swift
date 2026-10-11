@@ -25,7 +25,7 @@ struct ContentView: View {
                             }
                             LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                                 ForEach(section.recordings) { rec in
-                                    RecordingCard(recording: rec, player: player)
+                                    RecordingCard(recording: rec, player: player, library: library)
                                 }
                             }
                         }

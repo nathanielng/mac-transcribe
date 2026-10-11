@@ -60,4 +60,39 @@ extension Recording {
     }
 
     var year: String { String(sortTimestamp.prefix(4)) }
+
+    /// The literal "yyyymmdd hh-mm-ss" prefix as it actually appears in the
+    /// filename (unlike sortTimestamp, which reformats it for sorting) —
+    /// nil for a name that doesn't follow the convention these legacy
+    /// recordings use, in which case there's nothing dated to preserve.
+    var datePrefix: String? {
+        let name = url.deletingPathExtension().lastPathComponent
+        guard let match = name.range(of: #"^\d{8} \d{2}-\d{2}-\d{2}"#, options: .regularExpression) else {
+            return nil
+        }
+        return String(name[match])
+    }
+
+    var transcriptSidecarURL: URL {
+        url.deletingLastPathComponent().appendingPathComponent(name + ".transcript.txt")
+    }
+
+    /// Computed (re-checked on every access, a cheap stat call) rather than
+    /// cached at scan time — so it's always right immediately after this
+    /// recording's own transcribe-and-rename flow writes/moves the sidecar,
+    /// with no separate cache-invalidation step to remember.
+    var hasTranscriptSidecar: Bool {
+        FileManager.default.fileExists(atPath: transcriptSidecarURL.path)
+    }
+
+    /// Builds the filename a user-approved title should rename this file
+    /// to, keeping the yyyymmdd hh-mm-ss prefix per the existing naming
+    /// convention — "20140127 15-30-19.mp3" -> "20140127 15-30-19 Visit to
+    /// Dr Kek.mp3". Falls back to just the title (no date prefix) for a
+    /// name that never had one to keep.
+    func renamedURL(title: String) -> URL {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = datePrefix.map { "\($0) \(trimmedTitle)" } ?? trimmedTitle
+        return url.deletingLastPathComponent().appendingPathComponent(base + "." + url.pathExtension)
+    }
 }
