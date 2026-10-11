@@ -6,11 +6,17 @@ outline. No cloud recording service, no virtual audio driver.
 
 ## How it works
 
-Two components, coupled only through the filesystem:
+Three components, coupled only through the filesystem:
 
 - **`RecorderApp`** — a Swift/SwiftUI menu-bar app. Captures mic audio
   (`AVAudioEngine`) and/or system audio (`ScreenCaptureKit`, no BlackHole or
   similar driver required), encodes to MP3, and spawns the pipeline below.
+- **`RecordingsVisualizer`** — a separate, standalone Swift/SwiftUI app
+  (its own `Package.swift`, its own process) for browsing a folder of
+  recordings as a waveform grid: filter/sort, click-to-seek playback, and
+  per-folder analysis caching. Deliberately decoupled from RecorderApp so a
+  bug here can't affect recording or the pipeline. See
+  [`RecordingsVisualizer/README.md`](RecordingsVisualizer/README.md).
 - **`pipeline/`** — a Python CLI. Transcribes with MLX-Whisper (on-device,
   Apple Silicon GPU), generates an outline via Amazon Bedrock (Z.ai's GLM-5
   by default) or fully locally via MLX, and merges both into a
@@ -279,10 +285,21 @@ No Xcode required — builds with the Command Line Tools. See
 setup (microphone + Screen & System Audio Recording) and current
 implementation status.
 
+### RecordingsVisualizer (Swift)
+
+```bash
+cd RecordingsVisualizer
+swift build
+.build/debug/RecordingsVisualizer
+```
+
+A separate app/process from RecorderApp — see
+[`RecordingsVisualizer/README.md`](RecordingsVisualizer/README.md).
+
 ## Status
 
-Both halves are verified against real audio, real recordings, and real
-model calls (not just unit tests):
+RecorderApp and the pipeline are verified against real audio, real
+recordings, and real model calls (not just unit tests):
 
 - **Pipeline**: full run verified end-to-end — MLX-Whisper transcription,
   outline generation via Bedrock (Claude, DeepSeek, and Qwen all confirmed
@@ -298,6 +315,10 @@ model calls (not just unit tests):
   capture (`ScreenCaptureKit`) is implemented and compiles but not yet
   exercised against a real Zoom/Teams call — see
   [`RecorderApp/README.md`](RecorderApp/README.md) for the current gap list.
+- **RecordingsVisualizer**: builds and launches cleanly; not yet exercised
+  against a real recordings folder (long-file decode time, large libraries,
+  and odd filenames are all unverified) — see
+  [`RecordingsVisualizer/README.md`](RecordingsVisualizer/README.md).
 
 See [`LEARNINGS.md`](LEARNINGS.md) (local, gitignored) for the full list of
 real bugs found during manual testing and how they were diagnosed/fixed —

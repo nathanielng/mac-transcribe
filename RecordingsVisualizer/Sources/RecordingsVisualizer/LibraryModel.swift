@@ -22,8 +22,13 @@ final class LibraryModel: ObservableObject {
     private let defaultsKey = "lastFolder"
 
     init() {
+        // Default to RecorderApp's own recordings folder — the two apps
+        // are meant to look at the same recordings by default — unless the
+        // user has already explicitly picked a different one here.
         if let path = UserDefaults.standard.string(forKey: defaultsKey) {
             folder = URL(fileURLWithPath: path)
+        } else {
+            folder = SharedConfig.recordingsDir
         }
     }
 
@@ -75,10 +80,13 @@ final class LibraryModel: ObservableObject {
         progress = toAnalyse.isEmpty ? nil : (0, toAnalyse.count)
         recordings = results.sorted { $0.name < $1.name }
 
-        // Analyse missing/changed files a few at a time — AVAssetReader
-        // decoding is CPU-bound per file but we don't want to spin up one
-        // task per file for a folder with hundreds of recordings.
-        let maxConcurrent = max(2, ProcessInfo.processInfo.activeProcessorCount)
+        // Analyse missing/changed files a few at a time. Capped at 4
+        // regardless of core count: each analyse() call now only briefly
+        // occupies a cooperative-pool thread (the actual decode runs on a
+        // GCD queue off that pool — see decodePeaksOffPool), so this limit
+        // is just to avoid opening hundreds of file handles / AVAssetReaders
+        // at once on a folder with many recordings, not a CPU constraint.
+        let maxConcurrent = 4
         var index = 0
         while index < toAnalyse.count {
             let batch = toAnalyse[index..<min(index + maxConcurrent, toAnalyse.count)]

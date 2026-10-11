@@ -91,7 +91,12 @@ without this there's no sign of life from a terminal. Look for the mic icon
   failed stages, a ▶ Run button instead of static chips for sessions that
   have audio but no `status.json` yet (e.g. the app quit before the pipeline
   handoff ran), a manual ↺ refresh button next to the "Recent Recordings"
-  heading, click-through to the outline HTML, and the Settings… button
+  heading, click-through to the outline HTML, and the Settings… button.
+  While recording, also shows Pause/Resume and a "Cancel…" button that
+  discards the session (stops capture, deletes the session folder, no
+  pipeline run) — confirmed via a dialog, except when the recording is
+  ≤5s old, where there's nothing meaningful to lose and the confirmation
+  is skipped
 - `.onAppear { sessionStore.refresh() }` on the popover content — without
   it, `SessionStore.init()`'s first refresh could race the popover's lazy
   first construction and lose, showing a blank Recent Recordings list until

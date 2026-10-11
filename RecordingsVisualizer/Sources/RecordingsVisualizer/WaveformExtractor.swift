@@ -36,7 +36,10 @@ enum WaveformExtractor {
                 rec.channels = Int(basic.pointee.mChannelsPerFrame)
             }
 
-            let (peaks, peakDB) = try decodePeaks(asset: asset, track: track)
+            let estimatedSamples = Int(rec.duration * max(rec.sampleRate, 1))
+            let (peaks, peakDB) = try await decodePeaksOffPool(
+                asset: asset, track: track, estimatedSampleCount: estimatedSamples
+            )
             rec.peaks = peaks
             rec.peakDB = peakDB
         } catch {
@@ -45,10 +48,50 @@ enum WaveformExtractor {
         return rec
     }
 
+    /// `decodePeaks` below blocks synchronously on `copyNextSampleBuffer()`
+    /// in a tight loop. Calling that directly from an async Task (as a
+    /// previous version did) ran it on Swift's cooperative thread pool,
+    /// whose thread count is capped near the core count — with enough
+    /// concurrent analyse() calls in flight, every pool thread ends up
+    /// stuck in that blocking loop simultaneously, and `asset.load(...)`'s
+    /// own internal continuations (needed to even get this far) can no
+    /// longer find a thread to resume on: a real deadlock seen in testing
+    /// (all tasks stuck mid-analysis, zero completions for 60s+ on files
+    /// that decode in under a second standalone). Dispatching the blocking
+    /// work onto a plain GCD queue via a continuation keeps it off that
+    /// pool entirely.
+    private static func decodePeaksOffPool(
+        asset: AVAsset, track: AVAssetTrack, estimatedSampleCount: Int
+    ) async throws -> ([Float], Double?) {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    continuation.resume(returning: try decodePeaks(
+                        asset: asset, track: track, estimatedSampleCount: estimatedSampleCount
+                    ))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     /// Reads the track down-mixed to mono Int16 PCM and reduces it to
     /// `buckets` max-abs values, same approach as the Python version's
-    /// ffmpeg pipe + np.array_split (just without the subprocess).
-    private static func decodePeaks(asset: AVAsset, track: AVAssetTrack) throws -> ([Float], Double?) {
+    /// ffmpeg pipe + np.array_split — but bucketed incrementally as each
+    /// `CMSampleBuffer` streams in, rather than first collecting every
+    /// decoded sample into one `[Int16]` via repeated `append(contentsOf:)`.
+    /// That first version was fine for short clips but effectively hung on
+    /// a real ~5.7-hour, 494MB recording in testing: ~1 billion samples
+    /// means ~2GB of reallocating array growth before a single bucket is
+    /// computed. Bucketing on the fly keeps memory bounded to the bucket
+    /// array regardless of file length. `estimatedSampleCount` (duration ×
+    /// sample rate, both already known from the asset) sizes the buckets
+    /// upfront; being slightly off from the true decoded count just shifts
+    /// the last bucket's boundary, which is invisible at 240 bars wide.
+    private static func decodePeaks(
+        asset: AVAsset, track: AVAssetTrack, estimatedSampleCount: Int
+    ) throws -> ([Float], Double?) {
         let reader = try AVAssetReader(asset: asset)
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
@@ -63,37 +106,35 @@ enum WaveformExtractor {
             throw reader.error ?? NSError(domain: "WaveformExtractor", code: -1)
         }
 
-        var samples: [Int16] = []
+        let bucketCount = max(1, min(buckets, max(estimatedSampleCount, 1)))
+        let chunkSize = max(1, estimatedSampleCount / bucketCount)
+        var rawPeaks = [Float](repeating: 0, count: bucketCount)
+        var sampleIndex = 0
+        var overallMax: Int16 = 0
+
         while let buffer = output.copyNextSampleBuffer() {
             guard let blockBuffer = CMSampleBufferGetDataBuffer(buffer) else { continue }
             let length = CMBlockBufferGetDataLength(blockBuffer)
             var data = [UInt8](repeating: 0, count: length)
             CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: &data)
             data.withUnsafeBytes { raw in
-                let int16Buf = raw.bindMemory(to: Int16.self)
-                samples.append(contentsOf: int16Buf)
+                for s in raw.bindMemory(to: Int16.self) {
+                    let mag = s == .min ? Int16.max : abs(s)
+                    let bucket = min(sampleIndex / chunkSize, bucketCount - 1)
+                    if Float(mag) > rawPeaks[bucket] { rawPeaks[bucket] = Float(mag) }
+                    if mag > overallMax { overallMax = mag }
+                    sampleIndex += 1
+                }
             }
         }
         if reader.status == .failed {
             throw reader.error ?? NSError(domain: "WaveformExtractor", code: -2)
         }
-        if samples.isEmpty { return ([], nil) }
+        if sampleIndex == 0 { return ([], nil) }
 
-        let bucketCount = min(buckets, samples.count)
-        let chunkSize = max(1, samples.count / bucketCount)
-        var rawPeaks: [Float] = []
-        rawPeaks.reserveCapacity(bucketCount)
-        var i = 0
-        while i < samples.count {
-            let end = min(i + chunkSize, samples.count)
-            var maxV: Int16 = 0
-            for s in samples[i..<end] { maxV = max(maxV, s == .min ? .max : abs(s)) }
-            rawPeaks.append(Float(maxV))
-            i = end
-        }
-        let top = rawPeaks.max() ?? 0
+        let top = overallMax
         let peakDB: Double? = top > 0 ? 20 * log10(Double(top) / 32768) : nil
-        let normalized = rawPeaks.map { top > 0 ? $0 / top : 0 }
+        let normalized = rawPeaks.map { top > 0 ? $0 / Float(top) : 0 }
         return (normalized, peakDB.map { (($0 * 10).rounded() / 10) })
     }
 }
